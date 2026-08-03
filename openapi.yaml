@@ -1,0 +1,327 @@
+openapi: 3.0.3
+info:
+  title: Bookmarker API
+  description: OpenAPI contract for the Raindrop-inspired Bookmarker web application.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+paths:
+  /auth/google:
+    get:
+      summary: Initiate Google OAuth
+      operationId: AuthController_googleAuth
+      responses:
+        "302":
+          description: Redirects to Google
+  /auth/google/callback:
+    get:
+      summary: Google OAuth Callback
+      operationId: AuthController_googleAuthRedirect
+      responses:
+        "302":
+          description: Redirects to frontend
+  /auth/status:
+    get:
+      summary: Check Auth Status
+      operationId: AuthController_status
+      responses:
+        "200":
+          description: Returns user info if authenticated
+  /auth/logout:
+    get:
+      summary: Logout
+      operationId: AuthController_logout
+      responses:
+        "302":
+          description: Redirects to frontend
+  /folders:
+    get:
+      summary: Get all folders
+      operationId: FoldersController_findAll
+      responses:
+        "200":
+          description: A list of folders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Folder"
+    post:
+      summary: Create a new folder
+      operationId: createFolder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FolderCreate"
+      responses:
+        "201":
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+  /folders/{id}:
+    get:
+      summary: Get a folder by ID
+      operationId: getFolderById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Folder details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+        "404":
+          description: Folder not found
+    put:
+      summary: Update a folder
+      operationId: updateFolder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FolderCreate"
+      responses:
+        "200":
+          description: Folder updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+    delete:
+      summary: Delete a folder
+      operationId: deleteFolder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Folder deleted
+  /folders/{id}/children:
+    get:
+      summary: Get child folders
+      operationId: getFolderChildren
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of child folders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Folder"
+  /bookmarks:
+    get:
+      summary: Get all bookmarks, optionally filtered by folder
+      operationId: getBookmarks
+      parameters:
+        - name: folderId
+          in: query
+          description: ID of the folder to filter by. Use 'root' for unassigned bookmarks.
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of bookmarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bookmark"
+    post:
+      summary: Create a new bookmark
+      operationId: createBookmark
+      description: If only bookmarkURL is provided, the backend will scrape the page to fill in the missing details (title, description, logo).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookmarkCreate"
+      responses:
+        "201":
+          description: Bookmark created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+  /bookmarks/{id}:
+    get:
+      summary: Get a bookmark by ID
+      operationId: getBookmarkById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bookmark details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+        "404":
+          description: Bookmark not found
+    put:
+      summary: Update a bookmark
+      operationId: updateBookmark
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookmarkCreate"
+      responses:
+        "200":
+          description: Bookmark updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+    delete:
+      summary: Delete a bookmark
+      operationId: deleteBookmark
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Bookmark deleted
+components:
+  schemas:
+    Folder:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        count:
+          type: integer
+          description: Number of bookmarks in this folder
+    FolderCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+    Bookmark:
+      type: object
+      required:
+        - id
+        - bookmarkURL
+        - creationDate
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        author:
+          type: string
+        logoURL:
+          type: string
+          format: uri
+        bookmarkURL:
+          type: string
+          format: uri
+        description:
+          type: string
+        creationDate:
+          type: string
+          format: date-time
+        updateDate:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        folderId:
+          type: string
+          format: uuid
+          nullable: true
+    BookmarkCreate:
+      type: object
+      required:
+        - bookmarkURL
+      properties:
+        bookmarkURL:
+          type: string
+          format: uri
+        title:
+          type: string
+        author:
+          type: string
+        logoURL:
+          type: string
+          format: uri
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        folderId:
+          type: string
+          format: uuid
+          nullable: true
