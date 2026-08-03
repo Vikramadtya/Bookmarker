@@ -3,7 +3,6 @@ import { NeonGradientCard } from "@/components/magicui/neon-gradient-card";
 import { SparklesText } from "@/components/magicui/sparkles-text";
 import { TextAnimate } from "@/components/magicui/text-animate";
 import { Particles } from "@/components/magicui/particles";
-import Footer from "@/components/footer/footer";
 import { BASE_URL } from "@/lib/metadata";
 
 export default function LandingPage() {
@@ -149,9 +148,6 @@ export default function LandingPage() {
             </section>
           </main>
         </div>
-      </div>
-      <div className="relative z-10 border-t border-slate-900 bg-slate-950/80 backdrop-blur-md">
-        <Footer />
       </div>
     </div>
   );

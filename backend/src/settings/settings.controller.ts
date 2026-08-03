@@ -7,7 +7,6 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,7 +18,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { SettingsService } from './settings.service';
 import { ImportDto } from './dto/import.dto';
-import type { FastifyRequest } from 'fastify';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('settings')
 @ApiBearerAuth()
@@ -33,8 +32,7 @@ export class SettingsController {
     summary: 'Export all bookmarks and folders in Netscape HTML format',
   })
   @ApiResponse({ status: 200, description: 'HTML string content' })
-  async exportData(@Req() req: FastifyRequest) {
-    const userId = (req as any).user.email;
+  async exportData(@CurrentUser('email') userId: string) {
     return this.settingsService.exportToHtml(userId);
   }
 
@@ -45,8 +43,10 @@ export class SettingsController {
   })
   @ApiBody({ type: ImportDto })
   @ApiResponse({ status: 200, description: 'Import successful' })
-  async importData(@Req() req: FastifyRequest, @Body() importDto: ImportDto) {
-    const userId = (req as any).user.email;
+  async importData(
+    @CurrentUser('email') userId: string,
+    @Body() importDto: ImportDto,
+  ) {
     return this.settingsService.importFromHtml(userId, importDto.htmlContent);
   }
 
@@ -54,8 +54,7 @@ export class SettingsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete ALL user bookmarks and folders' })
   @ApiResponse({ status: 204, description: 'Data deleted' })
-  async deleteAllData(@Req() req: FastifyRequest) {
-    const userId = (req as any).user.email;
+  async deleteAllData(@CurrentUser('email') userId: string) {
     await this.settingsService.deleteAllData(userId);
   }
 }

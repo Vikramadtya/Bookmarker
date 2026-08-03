@@ -7,18 +7,20 @@ import type { FastifyRequest } from 'fastify';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(config: ConfigService) {
+    const secret = config.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error(
+        'JWT_SECRET environment variable is required but not set.',
+      );
+    }
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: FastifyRequest) => {
-          // Fastify stores cookies on request.cookies (populated by @fastify/cookie)
           return (request?.cookies?.['auth_token'] as string) ?? null;
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>(
-        'JWT_SECRET',
-        'bookmarker-super-secret-jwt-key',
-      ),
+      secretOrKey: secret,
     });
   }
 

@@ -23,6 +23,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FoldersService } from './folders.service';
 import { CreateFolderDto } from './dto/create-folder.dto';
+import { UpdateFolderDto } from './dto/update-folder.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('folders')
@@ -78,13 +79,13 @@ export class FoldersController {
   @Put(':id')
   @ApiOperation({ summary: 'Rename a folder' })
   @ApiParam({ name: 'id', description: 'Folder UUID' })
-  @ApiBody({ type: CreateFolderDto })
+  @ApiBody({ type: UpdateFolderDto })
   @ApiResponse({ status: 200, description: 'Updated folder' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
   async updateFolder(
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
-    @Body() updateFolderDto: CreateFolderDto,
+    @Body() updateFolderDto: UpdateFolderDto,
   ) {
     return this.foldersService.updateFolder(userId, id, updateFolderDto);
   }

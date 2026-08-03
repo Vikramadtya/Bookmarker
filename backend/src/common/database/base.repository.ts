@@ -34,7 +34,10 @@ export abstract class BaseRepository<T extends Document<any>> {
     updateData: Record<string, any>,
   ): Promise<T | null> {
     return this.model
-      .findOneAndUpdate(filterQuery, updateData, { new: true })
+      .findOneAndUpdate(filterQuery, updateData, {
+        new: true,
+        runValidators: true,
+      })
       .lean({ virtuals: true })
       .exec() as unknown as Promise<T | null>;
   }
@@ -44,7 +47,7 @@ export abstract class BaseRepository<T extends Document<any>> {
     updateData: Record<string, any>,
   ): Promise<T | null> {
     return this.model
-      .findByIdAndUpdate(id, updateData, { new: true })
+      .findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
       .lean({ virtuals: true })
       .exec() as unknown as Promise<T | null>;
   }

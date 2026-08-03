@@ -21,7 +21,6 @@ import { cn } from "@/lib/utils";
 const formSchema = z.object({
   bookmarkURL: z.preprocess(
     (val) => {
-      console.log("[Zod Preprocess] Raw URL value received by Zod:", val);
       if (typeof val !== "string" || !val.trim()) return "";
       const trimmed = val.trim();
       return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -84,7 +83,6 @@ const ModalForm = ({
   const currentTags = watch("tags") || "";
 
   const onSubmitForm = async (data) => {
-    console.log("[Form Submit] Validated data ready to send:", data);
     try {
       const parsedTags = data.tags
         ? data.tags
@@ -105,9 +103,7 @@ const ModalForm = ({
   };
 
   React.useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.log("[Form Validation] Errors detected:", errors);
-    }
+    // Intentionally left empty or remove
   }, [errors]);
 
   return (

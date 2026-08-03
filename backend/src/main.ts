@@ -6,6 +6,7 @@ import {
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from '@fastify/helmet';
 import compression from '@fastify/compress';
@@ -39,8 +40,14 @@ async function bootstrap() {
   await app.register(compression as any);
   await app.register(cookie as any);
 
+  const configService = app.get(ConfigService);
+  const frontendUrl = configService.get<string>(
+    'FRONTEND_URL',
+    'http://localhost:5173',
+  );
+
   app.enableCors({
-    origin: true, // reflect the request origin
+    origin: frontendUrl,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Meta'],
     credentials: true,

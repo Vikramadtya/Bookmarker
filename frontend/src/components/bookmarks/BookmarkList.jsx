@@ -51,15 +51,22 @@ export default function BookmarkList({ activeFolder }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const [selectedTag, setSelectedTag] = useState("");
+
   const activeFields = Object.entries(searchFields)
     .filter(([_, isActive]) => isActive)
     .map(([field]) => field);
 
-  const { data: bookmarks = [], isLoading } = useBookmarks(
+  const { data: rawBookmarks = [], isLoading } = useBookmarks(
     activeFolder,
     debouncedQuery,
     activeFields
   );
+
+  const bookmarks = useMemo(() => {
+    if (!selectedTag) return rawBookmarks;
+    return rawBookmarks.filter((b) => b.tags?.includes(selectedTag));
+  }, [rawBookmarks, selectedTag]);
   const deleteBookmark = useDeleteBookmark();
   const updateBookmark = useUpdateBookmark();
   const bulkDeleteBookmarks = useBulkDeleteBookmarks();
@@ -157,12 +164,12 @@ export default function BookmarkList({ activeFolder }) {
           </div>
 
           <select
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={selectedTag}
+            onChange={(e) => setSelectedTag(e.target.value)}
             className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-600 uppercase outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
           >
             <option value="">ALL TAGS</option>
-            {Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).map(
+            {Array.from(new Set(rawBookmarks.flatMap((b) => b.tags || []))).map(
               (tag) => (
                 <option key={tag} value={tag}>
                   {tag}

@@ -21,6 +21,9 @@ export class Folder {
 
 export const FolderSchema = SchemaFactory.createForClass(Folder);
 
+// Compound index for hierarchy queries (get all folders of a user, filter by parentId)
+FolderSchema.index({ userId: 1, parentId: 1 });
+
 FolderSchema.virtual('id').get(function (this: FolderDocument) {
   return this._id;
 });

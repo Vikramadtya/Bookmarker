@@ -1,19 +1,18 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { makeApiRequest } from "@/lib/utils";
+import { BASE_URL } from "@/lib/metadata";
 import { toast } from "sonner";
 
 export function useDeleteAllData() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => makeApiRequest("/settings/data", { method: "DELETE" }),
+    mutationFn: () =>
+      makeApiRequest({ url: `${BASE_URL}/settings/data`, method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
       toast.success("All data has been deleted.");
-    },
-    onError: () => {
-      toast.error("Failed to delete data. Please try again.");
     },
   });
 }
@@ -21,12 +20,13 @@ export function useDeleteAllData() {
 export function useExportData() {
   return useMutation({
     mutationFn: async () => {
-      // makeApiRequest usually expects JSON, but here we expect text/html
-      const response = await makeApiRequest("/settings/export");
+      const response = await makeApiRequest({
+        url: `${BASE_URL}/settings/export`,
+        method: "GET",
+      });
       return response;
     },
     onSuccess: (data) => {
-      // Create a blob and download it
       const blob = new Blob([data], { type: "text/html" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -38,9 +38,6 @@ export function useExportData() {
       window.URL.revokeObjectURL(url);
       toast.success("Export successful!");
     },
-    onError: () => {
-      toast.error("Failed to export data.");
-    },
   });
 }
 
@@ -49,17 +46,15 @@ export function useImportData() {
 
   return useMutation({
     mutationFn: (htmlContent) =>
-      makeApiRequest("/settings/import", {
+      makeApiRequest({
+        url: `${BASE_URL}/settings/import`,
         method: "POST",
-        data: { htmlContent },
+        body: { htmlContent },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
       toast.success("Bookmarks imported successfully!");
-    },
-    onError: () => {
-      toast.error("Failed to import data.");
     },
   });
 }

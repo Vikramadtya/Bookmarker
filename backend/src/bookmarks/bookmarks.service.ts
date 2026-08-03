@@ -38,6 +38,7 @@ export class BookmarksService {
       await this.scrapeQueue.add('scrape-metadata', {
         bookmarkId: bookmark._id.toString(),
         url: bookmarkURL,
+        userId,
       });
     }
 
@@ -131,6 +132,8 @@ export class BookmarksService {
     }
 
     if (q && fields) {
+      // Escape special regex characters to prevent ReDoS / regex injection
+      const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const schemaFields = fields
         .split(',')
         .filter(Boolean)
@@ -139,7 +142,7 @@ export class BookmarksService {
 
       if (schemaFields.length > 0) {
         filter.$or = schemaFields.map((field) => ({
-          [field]: { $regex: q, $options: 'i' },
+          [field]: { $regex: safeQ, $options: 'i' },
         }));
       }
     }

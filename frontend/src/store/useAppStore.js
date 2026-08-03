@@ -1,21 +1,10 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
-const getInitialTheme = () => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("theme");
-    if (stored) return stored;
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches)
-      return "dark";
-  }
-  return "light";
-};
-
 export const useAppStore = create(
   devtools(
     (set) => ({
-      // Theme & UI State
-      theme: getInitialTheme(),
+      // UI State
       isSidebarCompact: false,
       isSettingsModalOpen: false,
 
@@ -27,37 +16,6 @@ export const useAppStore = create(
         ),
       setSettingsModalOpen: (isOpen) =>
         set({ isSettingsModalOpen: isOpen }, false, "setSettingsModalOpen"),
-
-      toggleTheme: () =>
-        set(
-          (state) => {
-            const newTheme = state.theme === "light" ? "dark" : "light";
-            localStorage.setItem("theme", newTheme);
-            if (newTheme === "dark") {
-              document.documentElement.classList.add("dark");
-            } else {
-              document.documentElement.classList.remove("dark");
-            }
-            return { theme: newTheme };
-          },
-          false,
-          "toggleTheme"
-        ),
-
-      setTheme: (theme) =>
-        set(
-          () => {
-            localStorage.setItem("theme", theme);
-            if (theme === "dark") {
-              document.documentElement.classList.add("dark");
-            } else {
-              document.documentElement.classList.remove("dark");
-            }
-            return { theme };
-          },
-          false,
-          "setTheme"
-        ),
 
       // Bookmark Central State
       selectedBookmark: null,

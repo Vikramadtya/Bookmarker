@@ -18,16 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 export default function App() {
   const { data: user, isLoading: isAuthLoading } = useAuth();
   const updateBookmark = useUpdateBookmark();
-  const { theme, setTheme } = useAppStore();
-
-  useEffect(() => {
-    // Force initial sync on mount
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [theme]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

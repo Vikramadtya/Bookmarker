@@ -7,7 +7,7 @@ import { BookmarksRepository } from './bookmarks.repository';
 import { EventsGateway } from '../events/events.gateway';
 import puppeteer from 'puppeteer';
 
-@Processor('scrape')
+@Processor('scrape', { concurrency: 3 })
 export class ScrapeProcessor extends WorkerHost {
   private readonly logger = new Logger(ScrapeProcessor.name);
 
@@ -18,8 +18,10 @@ export class ScrapeProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<{ bookmarkId: string; url: string }>): Promise<void> {
-    const { bookmarkId, url } = job.data;
+  async process(
+    job: Job<{ bookmarkId: string; url: string; userId: string }>,
+  ): Promise<void> {
+    const { bookmarkId, url, userId } = job.data;
 
     try {
       const metadata = await this.extractMetadata(url);
@@ -36,7 +38,7 @@ export class ScrapeProcessor extends WorkerHost {
         this.logger.log(
           `[Job ${job.id}] Scraped metadata for bookmark ${bookmarkId}: "${title}"`,
         );
-        this.eventsGateway.emitBookmarkUpdated(bookmarkId, {
+        this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
           title: updated.title,
           description,
           logoURL,
@@ -47,7 +49,7 @@ export class ScrapeProcessor extends WorkerHost {
         `[Job ${job.id}] Scrape job failed for ${url}`,
         error instanceof Error ? error.stack : undefined,
       );
-      this.eventsGateway.emitBookmarkUpdated(bookmarkId, {
+      this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
         error: 'Failed to extract metadata',
       });
       // Rethrow to let BullMQ handle the failure (retries, dead letter queue)

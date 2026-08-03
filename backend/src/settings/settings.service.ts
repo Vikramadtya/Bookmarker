@@ -25,7 +25,11 @@ export class SettingsService {
     for (const folder of folders) {
       try {
         await this.foldersService.deleteFolder(userId, folder.id);
-      } catch (e) {}
+      } catch (e) {
+        this.logger.warn(
+          `Failed to delete folder ${folder.id}: ${(e as Error).message}`,
+        );
+      }
     }
   }
 
@@ -80,6 +84,21 @@ export class SettingsService {
     const $ = cheerio.load(htmlContent);
     const rootDl = $('dl').first();
 
+    // Resolve the Inbox folder once upfront to avoid N+1 DB calls
+    let inboxId: string | undefined;
+    const getInboxId = async (): Promise<string> => {
+      if (inboxId) return inboxId;
+      const folders = await this.foldersService.getAllFolders(userId);
+      let inbox = folders.find((f) => f.name === 'Inbox' && !f.parentId);
+      if (!inbox) {
+        inbox = await this.foldersService.createFolder(userId, {
+          name: 'Inbox',
+        });
+      }
+      inboxId = inbox.id;
+      return inboxId;
+    };
+
     const processDl = async (
       dlElement: any,
       currentParentId: string | undefined = undefined,
@@ -112,20 +131,7 @@ export class SettingsService {
 
           if (url) {
             try {
-              let targetFolderId = currentParentId;
-              if (!targetFolderId) {
-                const folders = await this.foldersService.getAllFolders(userId);
-                let inbox = folders.find(
-                  (f) => f.name === 'Inbox' && !f.parentId,
-                );
-                if (!inbox) {
-                  inbox = await this.foldersService.createFolder(userId, {
-                    name: 'Inbox',
-                  });
-                }
-                targetFolderId = inbox.id;
-              }
-
+              const targetFolderId = currentParentId ?? (await getInboxId());
               await this.bookmarksService.createBookmark(userId, {
                 bookmarkURL: url,
                 title: title,
@@ -133,7 +139,7 @@ export class SettingsService {
               });
             } catch (err) {
               this.logger.warn(
-                `Failed to import bookmark ${url}: ${err.message}`,
+                `Failed to import bookmark ${url}: ${(err as Error).message}`,
               );
             }
           }

@@ -61,10 +61,11 @@ Bookmarker is a self-hosted web app where you can save, organize, and search all
 | ⭐ **Favorites**             | Star bookmarks for quick access via the Favorites folder.                                                                                             |
 | 📋 **Bulk Actions**          | Select multiple bookmarks, then bulk-move or bulk-delete them.                                                                                        |
 | 🖱️ **Drag & Drop**           | Drag a bookmark from the list onto a folder in the sidebar to move it instantly.                                                                      |
-| 🌙 **Dark Mode**             | Automatic detection of system preference with a manual toggle.                                                                                        |
+| 🌙 **Dark Mode**             | Automatic detection of system preference with a manual toggle (powered by `next-themes`).                                                             |
 | 📥 **Import / Export**       | Import bookmarks from a Netscape HTML file (standard browser export format).                                                                          |
 | ⚙️ **Settings**              | Manage your account, import/export data, and danger zone (delete all).                                                                                |
 | 🔒 **Google OAuth Login**    | Sign in securely with your Google account. Always prompts for account selection.                                                                      |
+| 🛡️ **Secure & Fast**         | Optimized with MongoDB compound indexes, isolated WebSocket rooms to prevent data leakage, and ReDoS protection on search.                            |
 
 ---
 
@@ -364,6 +365,7 @@ flowchart TD
 | sonner           | 2       | Toast notifications                                  |
 | cmdk             | 1       | Command palette (⌘K)                                 |
 | lucide-react     | latest  | Icon library                                         |
+| next-themes      | latest  | System-aware dark/light mode management              |
 | dayjs            | latest  | Lightweight date formatting                          |
 
 ---
@@ -678,72 +680,26 @@ Copy the template: `cd backend && cp .env.example .env`
 
 ---
 
-## ☁️ Deployment (Free Tier)
+## ☁️ Deployment (Free Tier) & CI/CD
 
-You can run Bookmarker in the cloud for **$0/month** using these services:
+You can run Bookmarker in the cloud for **$0/month** using Vercel (Frontend), Render (Backend), MongoDB Atlas (Database), and Upstash (Redis).
 
-| Service               | Provider          | Free Tier                                           |
-| :-------------------- | :---------------- | :-------------------------------------------------- |
-| Frontend (React/Vite) | **Vercel**        | 100GB bandwidth, auto-deploy on push                |
-| Backend (NestJS)      | **Render**        | Free Web Service (cold start ~30s after inactivity) |
-| Database (MongoDB)    | **MongoDB Atlas** | M0 Cluster: 512MB storage                           |
-| Queue (BullMQ/Redis)  | **Upstash**       | Serverless Redis: 10,000 requests/day free          |
+We have provided a comprehensive, step-by-step guide on how to deploy this stack for free.
+Please refer to the **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** located in the root of the repository for full instructions.
 
-**Deployment steps:**
+### ⚙️ CI/CD Pipeline
 
-1. Create a free MongoDB Atlas M0 cluster. Get `MONGODB_URI`.
-2. Create a free Upstash Redis database. Get `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`.
-3. Deploy backend to Render:
-   - Root Directory: `backend`, Build: `npm install && npm run build`, Start: `npm run start:prod`.
-   - Set all environment variables.
-4. Deploy frontend to Vercel:
-   - Framework: Vite, Root Directory: `frontend`.
-   - Set `VITE_API_BASE_URL` to your Render backend URL.
-5. Update Google Cloud Console → add your Render and Vercel URLs to authorized origins/redirects.
+This repository comes pre-configured with a professional GitHub Actions CI/CD pipeline!
 
----
+Every push to `main` and every Pull Request automatically:
 
-## ⚙️ CI/CD Pipeline
+1. Spins up a free Ubuntu server via GitHub Actions.
+2. Installs frontend and backend dependencies.
+3. Builds the NestJS backend and runs backend tests.
+4. Builds the React frontend to ensure there are no compilation errors.
+5. If the CI check passes ✅, Vercel and Render will automatically deploy the fresh code.
 
-Every push to `main` automatically:
-
-1. GitHub Actions runs a **CI check** (install + build + test both frontend and backend).
-2. If CI passes, **Render** and **Vercel** auto-deploy the new code.
-
-To add the CI pipeline, create `.github/workflows/ci.yml`:
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      # Backend
-      - run: npm ci
-        working-directory: ./backend
-      - run: npm run build
-        working-directory: ./backend
-      - run: npm run test
-        working-directory: ./backend
-
-      # Frontend
-      - run: npm ci
-        working-directory: ./frontend
-      - run: npm run build
-        working-directory: ./frontend
-```
+The pipeline is fully configured out-of-the-box in `.github/workflows/ci.yml`.
 
 ---
 

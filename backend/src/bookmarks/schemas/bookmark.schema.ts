@@ -42,6 +42,11 @@ export class Bookmark {
 
 export const BookmarkSchema = SchemaFactory.createForClass(Bookmark);
 
+// Compound indexes for common query patterns
+BookmarkSchema.index({ userId: 1, folderId: 1 });
+BookmarkSchema.index({ userId: 1, isFavorite: 1 });
+BookmarkSchema.index({ userId: 1, createdAt: -1 });
+
 BookmarkSchema.virtual('id').get(function (this: BookmarkDocument) {
   return this._id;
 });

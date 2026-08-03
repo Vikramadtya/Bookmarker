@@ -1,5 +1,3 @@
-"use client";
-
 import { useAppStore } from "@/store/useAppStore";
 import BookmarkList from "./BookmarkList";
 import BookmarkDetail from "./BookmarkDetail";

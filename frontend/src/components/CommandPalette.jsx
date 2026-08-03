@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Command } from "cmdk";
 import { Search, Folder, Bookmark } from "lucide-react";
-import { BASE_URL } from "@/lib/metadata";
-import { useQuery } from "@tanstack/react-query";
-import { makeApiRequest, cn } from "@/lib/utils";
-import { useSearchParams } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useFolders } from "@/hooks/useFolders";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -33,17 +32,8 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  const { data: folders = [] } = useQuery({
-    queryKey: ["folders", "all"],
-    queryFn: async () =>
-      await makeApiRequest({ url: `${BASE_URL}/folders`, method: "GET" }),
-  });
-
-  const { data: bookmarks = [] } = useQuery({
-    queryKey: ["bookmarks", "all"],
-    queryFn: async () =>
-      await makeApiRequest({ url: `${BASE_URL}/bookmarks`, method: "GET" }),
-  });
+  const { data: folders = [] } = useFolders();
+  const { data: bookmarks = [] } = useBookmarks("root");
 
   const setActiveFolder = (id) => {
     setSearchParams((prev) => {
@@ -57,42 +47,46 @@ export function CommandPalette() {
 
   const query = searchQuery.toLowerCase().trim();
 
-  const filteredFolders = folders.filter((folder) => {
-    if (searchFolder !== "all") return false;
-    if (!query) return true;
-    return folder.name.toLowerCase().includes(query);
-  });
+  const filteredFolders = useMemo(() => {
+    return folders.filter((folder) => {
+      if (searchFolder !== "all") return false;
+      if (!query) return true;
+      return folder.name.toLowerCase().includes(query);
+    });
+  }, [folders, searchFolder, query]);
 
-  const filteredBookmarks = bookmarks.filter((bookmark) => {
-    if (searchFolder !== "all" && bookmark.folderId !== searchFolder)
+  const filteredBookmarks = useMemo(() => {
+    return bookmarks.filter((bookmark) => {
+      if (searchFolder !== "all" && bookmark.folderId !== searchFolder)
+        return false;
+      if (!query) return true;
+
+      if (searchFields.title && bookmark.title?.toLowerCase().includes(query))
+        return true;
+      if (
+        searchFields.title &&
+        bookmark.bookmarkURL?.toLowerCase().includes(query)
+      )
+        return true;
+      if (
+        searchFields.description &&
+        bookmark.description?.toLowerCase().includes(query)
+      )
+        return true;
+      if (
+        searchFields.tags &&
+        bookmark.tags?.some((t) => t.toLowerCase().includes(query))
+      )
+        return true;
+      if (
+        searchFields.notes &&
+        bookmark.comments?.some((c) => c.toLowerCase().includes(query))
+      )
+        return true;
+
       return false;
-    if (!query) return true;
-
-    if (searchFields.title && bookmark.title?.toLowerCase().includes(query))
-      return true;
-    if (
-      searchFields.title &&
-      bookmark.bookmarkURL?.toLowerCase().includes(query)
-    )
-      return true;
-    if (
-      searchFields.description &&
-      bookmark.description?.toLowerCase().includes(query)
-    )
-      return true;
-    if (
-      searchFields.tags &&
-      bookmark.tags?.some((t) => t.toLowerCase().includes(query))
-    )
-      return true;
-    if (
-      searchFields.notes &&
-      bookmark.comments?.some((c) => c.toLowerCase().includes(query))
-    )
-      return true;
-
-    return false;
-  });
+    });
+  }, [bookmarks, searchFolder, query, searchFields]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh] sm:px-0">
