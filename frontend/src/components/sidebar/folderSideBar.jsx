@@ -372,11 +372,7 @@ export default function FolderSidebar() {
         </button>
         <button
           onClick={() => {
-            let authUrl = "http://localhost:8080/auth/logout";
-            try {
-              authUrl = new URL(BASE_URL).origin + "/auth/logout";
-            } catch (e) {}
-            window.location.href = authUrl;
+            window.dispatchEvent(new Event("unauthorized"));
           }}
           className={cn(
             "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",

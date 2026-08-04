@@ -33,6 +33,7 @@ export default function Providers({ children }) {
     });
 
     const handleUnauthorized = () => {
+      localStorage.removeItem("bookmarker_token");
       queryClient.setQueryData(["auth-status"], null);
     };
     window.addEventListener("unauthorized", handleUnauthorized);

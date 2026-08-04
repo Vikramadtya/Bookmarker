@@ -71,11 +71,17 @@ export async function makeApiRequest({
   try {
     logger.debug(`🔄 ${type.toUpperCase()} - ${name}`);
 
+    const finalToken =
+      token ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("bookmarker_token")
+        : null);
+
     const config = {
       url,
       method,
       headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(finalToken && { Authorization: `Bearer ${finalToken}` }),
         ...headers,
         "X-Request-Meta": JSON.stringify({
           requestId,

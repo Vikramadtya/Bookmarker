@@ -54,7 +54,7 @@ export class AuthController {
       path: '/',
     });
 
-    reply.status(302).redirect(frontendUrl);
+    reply.status(302).redirect(`${frontendUrl}?token=${token}`);
   }
 
   @Get('status')
