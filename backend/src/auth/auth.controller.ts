@@ -51,7 +51,7 @@ export class AuthController {
     reply.setCookie('auth_token', token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 24 * 60 * 60, // seconds (not ms) for Fastify
       path: '/',
     });
@@ -81,7 +81,7 @@ export class AuthController {
     reply.clearCookie('auth_token', {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       path: '/',
     });
     reply.status(302).redirect(frontendUrl);

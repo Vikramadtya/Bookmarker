@@ -5,14 +5,13 @@ import { LoggerModule } from 'nestjs-pino';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { TerminusModule } from '@nestjs/terminus';
 import { BullModule } from '@nestjs/bullmq';
 import { EventsModule } from './events/events.module';
 import { FoldersModule } from './folders/folders.module';
 import { BookmarksModule } from './bookmarks/bookmarks.module';
 import { AuthModule } from './auth/auth.module';
-
 import { SettingsModule } from './settings/settings.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -37,12 +36,35 @@ import { SettingsModule } from './settings/settings.module';
     // ── Queue (BullMQ / Redis) ───────────────────────────────────────────────
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: {
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        let connectionConfig: any = {
           host: config.get<string>('REDIS_HOST', 'localhost'),
           port: config.get<number>('REDIS_PORT', 6379),
-        },
-      }),
+        };
+
+        const password = config.get<string>('REDIS_PASSWORD');
+        if (password) {
+          connectionConfig.password = password;
+          connectionConfig.tls = {};
+        }
+
+        if (redisUrl) {
+          const parsed = new URL(redisUrl);
+          connectionConfig = {
+            host: parsed.hostname,
+            port:
+              parseInt(parsed.port, 10) ||
+              (parsed.protocol === 'rediss:' ? 6380 : 6379),
+            password: parsed.password || undefined,
+          };
+          if (parsed.protocol === 'rediss:') {
+            connectionConfig.tls = {};
+          }
+        }
+
+        return { connection: connectionConfig };
+      },
     }),
 
     // ── Structured Logging (pino) ────────────────────────────────────────────
@@ -84,7 +106,7 @@ import { SettingsModule } from './settings/settings.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
 
     // ── Health Checks ────────────────────────────────────────────────────────
-    TerminusModule,
+    HealthModule,
 
     // ── Feature Modules ───────────────────────────────────────────────────────
     EventsModule,
