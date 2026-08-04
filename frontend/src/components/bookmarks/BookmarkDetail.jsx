@@ -104,30 +104,18 @@ export default function BookmarkDetail() {
           </div>
 
           <div className="mb-6 flex items-start gap-5">
-            {(() => {
-              const getFaviconUrl = () => {
-                if (bookmark.logoURL) return bookmark.logoURL;
-                try {
-                  return `${new URL(bookmark.bookmarkURL).origin}/favicon.ico`;
-                } catch {
-                  return null;
-                }
-              };
-              const activeLogo = getFaviconUrl();
-
-              return activeLogo && !imageError ? (
-                <img
-                  src={activeLogo}
-                  alt="Logo"
-                  className="h-16 w-16 rounded-2xl border border-slate-100 bg-white object-contain p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <Bookmark className="h-6 w-6 text-slate-300 dark:text-slate-600" />
-                </div>
-              );
-            })()}
+            {bookmark.logoURL && !imageError ? (
+              <img
+                src={bookmark.logoURL}
+                alt="Logo"
+                className="h-16 w-16 rounded-2xl border border-slate-100 bg-white object-contain p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <Bookmark className="h-6 w-6 text-slate-300 dark:text-slate-600" />
+              </div>
+            )}
             <div className="pt-1">
               <h2 className="mb-2 text-2xl leading-tight font-bold tracking-tight text-slate-900 dark:text-white">
                 {bookmark.title || "Untitled"}
