@@ -42,10 +42,8 @@ export class AuthController {
       name: user.firstName,
       picture: user.picture,
     });
-    const frontendUrl = this.config.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:5173',
-    );
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     const isProd = this.config.get<string>('NODE_ENV') === 'production';
 
     reply.setCookie('auth_token', token, {
@@ -73,10 +71,8 @@ export class AuthController {
   @Get('logout')
   @ApiOperation({ summary: 'Clear the auth cookie and redirect to the app' })
   logout(@Res({ passthrough: false }) reply: FastifyReply) {
-    const frontendUrl = this.config.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:5173',
-    );
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     const isProd = this.config.get<string>('NODE_ENV') === 'production';
     reply.clearCookie('auth_token', {
       httpOnly: true,

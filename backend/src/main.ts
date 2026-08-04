@@ -41,10 +41,8 @@ async function bootstrap() {
   await app.register(cookie as any);
 
   const configService = app.get(ConfigService);
-  const frontendUrl = configService.get<string>(
-    'FRONTEND_URL',
-    'http://localhost:5173',
-  );
+  const frontendUrl =
+    configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
 
   app.enableCors({
     origin: frontendUrl,
