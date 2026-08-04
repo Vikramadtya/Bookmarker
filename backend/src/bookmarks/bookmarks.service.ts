@@ -35,11 +35,21 @@ export class BookmarksService {
     });
 
     if (needsScraping) {
-      await this.scrapeQueue.add('scrape-metadata', {
-        bookmarkId: bookmark._id.toString(),
-        url: bookmarkURL,
-        userId,
-      });
+      await this.scrapeQueue.add(
+        'scrape-metadata',
+        {
+          bookmarkId: bookmark._id.toString(),
+          url: bookmarkURL,
+          userId,
+        },
+        {
+          attempts: 2,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+        },
+      );
     }
 
     return bookmark;

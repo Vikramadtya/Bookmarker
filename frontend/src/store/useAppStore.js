@@ -36,6 +36,21 @@ export const useAppStore = create(
           "closeBookmarkModal"
         ),
 
+      // Move Modal State
+      moveBookmarkModal: { isOpen: false, bookmark: null },
+      openMoveModal: (bookmark) =>
+        set(
+          { moveBookmarkModal: { isOpen: true, bookmark } },
+          false,
+          "openMoveModal"
+        ),
+      closeMoveModal: () =>
+        set(
+          { moveBookmarkModal: { isOpen: false, bookmark: null } },
+          false,
+          "closeMoveModal"
+        ),
+
       // Bulk Selection State
       selectedBookmarks: new Set(),
       toggleBookmarkSelection: (id) =>

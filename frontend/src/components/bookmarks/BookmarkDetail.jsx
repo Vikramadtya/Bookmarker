@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Plus,
   Loader2,
+  Folder,
 } from "lucide-react";
 import BookmarkPreview from "./BookmarkPreview";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,6 +20,7 @@ export default function BookmarkDetail() {
     selectedBookmark: bookmark,
     setSelectedBookmark,
     openBookmarkModal,
+    openMoveModal,
   } = useAppStore();
   const [imageError, setImageError] = useState(false);
   const [newNote, setNewNote] = useState("");
@@ -84,6 +86,13 @@ export default function BookmarkDetail() {
               >
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
+            </button>
+            <button
+              onClick={() => openMoveModal(bookmark)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            >
+              <Folder className="h-4 w-4 stroke-[1.5]" />
+              <span>Move</span>
             </button>
             <button
               onClick={() => openBookmarkModal("edit", bookmark)}

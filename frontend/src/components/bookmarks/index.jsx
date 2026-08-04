@@ -4,6 +4,7 @@ import BookmarkDetail from "./BookmarkDetail";
 import { useSearchParams } from "react-router-dom";
 import { useCreateBookmark, useUpdateBookmark } from "@/hooks/useBookmarks";
 import ModalForm from "@/components/modalForm/modalForm";
+import MoveBookmarkModal from "./MoveBookmarkModal";
 
 export default function BookmarksView() {
   const [searchParams] = useSearchParams();
@@ -38,6 +39,8 @@ export default function BookmarksView() {
       <div className="flex-1 bg-white">
         <BookmarkDetail />
       </div>
+
+      <MoveBookmarkModal />
 
       {bookmarkFormModal.isOpen && (
         <ModalForm

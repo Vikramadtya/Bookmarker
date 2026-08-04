@@ -46,12 +46,33 @@ export class ScrapeProcessor extends WorkerHost {
       }
     } catch (error) {
       this.logger.error(
-        `[Job ${job.id}] Scrape job failed for ${url}`,
+        `[Job ${job.id}] Scrape job failed for ${url} (Attempt ${job.attemptsMade} of ${job.opts.attempts})`,
         error instanceof Error ? error.stack : undefined,
       );
-      this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
-        error: 'Failed to extract metadata',
-      });
+
+      // If this is the final attempt, update the database so it's not stuck on "Scraping..."
+      if (job.attemptsMade >= (job.opts.attempts || 1)) {
+        let fallbackTitle = 'Unknown Site';
+        try {
+          fallbackTitle = new URL(url).hostname;
+        } catch {}
+
+        await this.bookmarksRepository.updateById(bookmarkId, {
+          title: fallbackTitle,
+          description: 'Failed to extract metadata',
+        });
+
+        this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
+          title: fallbackTitle,
+          description: 'Failed to extract metadata',
+          error: 'Failed to extract metadata',
+        });
+      } else {
+        // Just emit the error for the frontend without updating DB, so it knows it failed this attempt
+        this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
+          error: 'Failed to extract metadata',
+        });
+      }
       // Rethrow to let BullMQ handle the failure (retries, dead letter queue)
       throw error;
     }
