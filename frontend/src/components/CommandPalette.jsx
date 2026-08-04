@@ -232,16 +232,28 @@ function CommandPaletteBookmarkItem({ bookmark, onSelect }) {
       onSelect={onSelect}
       className="flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm transition-colors data-[selected=true]:bg-slate-100 dark:data-[selected=true]:bg-slate-800"
     >
-      {bookmark.logoURL && !imageError ? (
-        <img
-          src={bookmark.logoURL}
-          alt=""
-          className="mr-3 h-5 w-5 shrink-0 rounded-md border border-slate-100 bg-white object-contain p-0.5 dark:border-slate-700 dark:bg-slate-800"
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        <Bookmark className="mr-3 h-4 w-4 shrink-0 stroke-[1.5] text-slate-400" />
-      )}
+      {(() => {
+        const getFaviconUrl = () => {
+          if (bookmark.logoURL) return bookmark.logoURL;
+          try {
+            return `${new URL(bookmark.bookmarkURL).origin}/favicon.ico`;
+          } catch {
+            return null;
+          }
+        };
+        const activeLogo = getFaviconUrl();
+
+        return activeLogo && !imageError ? (
+          <img
+            src={activeLogo}
+            alt=""
+            className="mr-3 h-5 w-5 shrink-0 rounded border border-slate-100 bg-white object-contain p-0.5 dark:border-slate-700 dark:bg-slate-800"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <Globe className="mr-3 h-4 w-4 shrink-0 stroke-[1.5] text-slate-400" />
+        );
+      })()}
       <div className="flex min-w-0 flex-col">
         <span className="truncate leading-tight font-medium text-slate-700 dark:text-slate-200">
           {bookmark.title || bookmark.bookmarkURL}

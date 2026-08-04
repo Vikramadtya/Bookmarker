@@ -461,18 +461,30 @@ function DraggableBookmark({
             )}
           </button>
 
-          {b.logoURL && !imageError ? (
-            <img
-              src={b.logoURL}
-              alt=""
-              className="h-8 w-8 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-1 dark:border-slate-700 dark:bg-slate-800"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-              <Globe className="h-4 w-4 stroke-[1.5] text-slate-300 dark:text-slate-600" />
-            </div>
-          )}
+          {(() => {
+            const getFaviconUrl = () => {
+              if (b.logoURL) return b.logoURL;
+              try {
+                return `${new URL(b.bookmarkURL).origin}/favicon.ico`;
+              } catch {
+                return null;
+              }
+            };
+            const activeLogo = getFaviconUrl();
+
+            return activeLogo && !imageError ? (
+              <img
+                src={activeLogo}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-1 dark:border-slate-700 dark:bg-slate-800"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+                <Globe className="h-4 w-4 stroke-[1.5] text-slate-300 dark:text-slate-600" />
+              </div>
+            );
+          })()}
           <div className="min-w-0 flex-1">
             <p
               className={cn(
