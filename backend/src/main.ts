@@ -78,7 +78,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = configService.get<number>('PORT', 8080);
+  console.log('Bootstrapping application...');
+  const port = parseInt(configService.get<string>('PORT', '8080'), 10);
+  console.log(`Attempting to bind to port ${port} on 0.0.0.0...`);
+
   await app.listen(port, '0.0.0.0');
+  console.log(`Server successfully started and listening on port ${port}`);
 }
 bootstrap();
