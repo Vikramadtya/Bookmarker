@@ -52,10 +52,18 @@ export class ScrapeProcessor extends WorkerHost {
 
       // If this is the final attempt, update the database so it's not stuck on "Scraping..."
       if (job.attemptsMade >= (job.opts.attempts || 1)) {
-        let fallbackTitle = 'Unknown Site';
-        try {
-          fallbackTitle = new URL(url).hostname;
-        } catch {}
+        const existingBookmark =
+          await this.bookmarksRepository.findById(bookmarkId);
+        let fallbackTitle = existingBookmark?.title;
+
+        // Only fallback to the hostname if the title wasn't manually set by the user
+        if (!fallbackTitle || fallbackTitle === url) {
+          try {
+            fallbackTitle = new URL(url).hostname;
+          } catch {
+            fallbackTitle = 'Unknown Site';
+          }
+        }
 
         await this.bookmarksRepository.updateById(bookmarkId, {
           title: fallbackTitle,
