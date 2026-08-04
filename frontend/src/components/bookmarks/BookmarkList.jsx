@@ -264,39 +264,48 @@ export default function BookmarkList({ activeFolder }) {
                     className="absolute bottom-full left-0 mb-2 w-48 origin-bottom-left rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
                   >
                     <div className="no-scrollbar max-h-60 overflow-y-auto">
-                      {folders
-                        .filter((f) => !f.parentId && f.name !== "Inbox")
-                        .map((collection) => (
-                          <div key={collection.id}>
-                            <div className="px-2 py-1.5 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                              {collection.name}
-                            </div>
-                            {folders
-                              .filter((f) => f.parentId === collection.id)
-                              .map((folder) => (
-                                <button
-                                  key={folder.id}
-                                  onClick={() => {
-                                    bulkMoveBookmarks.mutate(
-                                      {
-                                        ids: Array.from(selectedBookmarks),
-                                        folderId: folder.id,
-                                      },
-                                      {
-                                        onSuccess: () => {
-                                          clearBookmarkSelection();
-                                          setShowMoveMenu(false);
-                                        },
-                                      }
-                                    );
-                                  }}
-                                  className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                                >
-                                  {folder.name}
-                                </button>
-                              ))}
-                          </div>
-                        ))}
+                      <button
+                        onClick={() => {
+                          bulkMoveBookmarks.mutate(
+                            {
+                              ids: Array.from(selectedBookmarks),
+                              folderId: null,
+                            },
+                            {
+                              onSuccess: () => {
+                                clearBookmarkSelection();
+                                setShowMoveMenu(false);
+                              },
+                            }
+                          );
+                        }}
+                        className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        Inbox (No Folder)
+                      </button>
+
+                      {folders.map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => {
+                            bulkMoveBookmarks.mutate(
+                              {
+                                ids: Array.from(selectedBookmarks),
+                                folderId: folder.id,
+                              },
+                              {
+                                onSuccess: () => {
+                                  clearBookmarkSelection();
+                                  setShowMoveMenu(false);
+                                },
+                              }
+                            );
+                          }}
+                          className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          {folder.name}
+                        </button>
+                      ))}
                     </div>
                   </motion.div>
                 )}
