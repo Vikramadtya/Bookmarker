@@ -12,11 +12,17 @@ export class Folder {
   @Prop({ required: true })
   name: string;
 
+  @Prop({ type: String, required: true })
+  slug: string;
+
   @Prop({ type: String, default: null })
   parentId: string;
 
   @Prop({ type: String, required: true, index: true })
   userId: string;
+
+  @Prop({ type: Boolean, default: false })
+  isPublic: boolean;
 }
 
 export const FolderSchema = SchemaFactory.createForClass(Folder);

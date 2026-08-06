@@ -4,9 +4,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { GoogleStrategy } from './google.strategy';
 import { JwtStrategy } from './jwt.strategy';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
+    UsersModule,
     // JwtModule.registerAsync reads the secret from ConfigService
     // instead of calling dotenv.config() in every file
     JwtModule.registerAsync({

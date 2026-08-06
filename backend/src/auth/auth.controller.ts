@@ -1,9 +1,10 @@
 import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { UsersService } from '../users/users.service';
 
 import { GoogleAuthGuard } from './google-auth.guard';
 
@@ -13,6 +14,7 @@ export class AuthController {
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly usersService: UsersService,
   ) {}
 
   @Get('google')
@@ -32,15 +34,24 @@ export class AuthController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: false }) reply: FastifyReply,
   ) {
-    const user = (req as any).user as {
+    const profile = (req as any).user as {
       email: string;
       firstName: string;
       picture?: string;
     };
+
+    const dbUser = await this.usersService.findOrCreateUser({
+      email: profile.email,
+      name: profile.firstName,
+      picture: profile.picture,
+    });
+
     const token = this.jwtService.sign({
-      email: user.email,
-      name: user.firstName,
-      picture: user.picture,
+      id: dbUser._id,
+      email: dbUser.email,
+      username: dbUser.username,
+      name: dbUser.name,
+      picture: dbUser.picture,
     });
     const frontendUrl =
       this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
@@ -60,12 +71,24 @@ export class AuthController {
   @Get('status')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
-    summary: 'Returns the authenticated user profile from the JWT cookie',
+    summary: 'Returns the authenticated user profile',
   })
   @ApiResponse({ status: 200, description: 'Authenticated user info' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
-  status(@Req() req: FastifyRequest) {
-    return (req as any).user;
+  async status(@Req() req: FastifyRequest) {
+    const userPayload = (req as any).user;
+    // Fetch fresh user from DB using findOrCreateUser to ensure old users get a username generated
+    const dbUser = await this.usersService.findOrCreateUser({
+      email: userPayload.email,
+      name: userPayload.name,
+      picture: userPayload.picture,
+    });
+
+    return {
+      ...userPayload,
+      username: dbUser.username,
+      id: dbUser._id,
+    };
   }
 
   @Get('logout')

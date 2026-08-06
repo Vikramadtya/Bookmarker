@@ -12,6 +12,7 @@ const SEARCHABLE_FIELDS = new Set([
   'tags',
   'author',
   'comments',
+  'content',
 ]);
 const FIELD_ALIAS: Record<string, string> = { notes: 'comments' };
 
@@ -141,19 +142,24 @@ export class BookmarksService {
         folderIds.length > 1 ? { $in: folderIds } : folderIds[0];
     }
 
-    if (q && fields) {
-      // Escape special regex characters to prevent ReDoS / regex injection
-      const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const schemaFields = fields
-        .split(',')
-        .filter(Boolean)
-        .map((f) => FIELD_ALIAS[f] ?? f)
-        .filter((f) => SEARCHABLE_FIELDS.has(f));
+    if (q) {
+      if (fields) {
+        // Escape special regex characters to prevent ReDoS / regex injection
+        const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const schemaFields = fields
+          .split(',')
+          .filter(Boolean)
+          .map((f) => FIELD_ALIAS[f] ?? f)
+          .filter((f) => SEARCHABLE_FIELDS.has(f));
 
-      if (schemaFields.length > 0) {
-        filter.$or = schemaFields.map((field) => ({
-          [field]: { $regex: safeQ, $options: 'i' },
-        }));
+        if (schemaFields.length > 0) {
+          filter.$or = schemaFields.map((field) => ({
+            [field]: { $regex: safeQ, $options: 'i' },
+          }));
+        }
+      } else {
+        // If no specific fields requested, use native MongoDB full-text search
+        filter.$text = { $search: q };
       }
     }
 

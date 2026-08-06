@@ -7,8 +7,11 @@ import {
   Plus,
   Loader2,
   Folder,
+  BookOpen,
+  AlertTriangle,
 } from "lucide-react";
 import BookmarkPreview from "./BookmarkPreview";
+import ReaderView from "./ReaderView";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useUpdateBookmark } from "@/hooks/useBookmarks";
@@ -24,6 +27,7 @@ export default function BookmarkDetail() {
   } = useAppStore();
   const [imageError, setImageError] = useState(false);
   const [newNote, setNewNote] = useState("");
+  const [isReaderOpen, setIsReaderOpen] = useState(false);
   const updateBookmark = useUpdateBookmark();
 
   useEffect(() => {
@@ -101,6 +105,15 @@ export default function BookmarkDetail() {
               <Edit2 className="h-4 w-4 stroke-[1.5]" />
               <span>Edit</span>
             </button>
+            {bookmark.isArticle && (
+              <button
+                onClick={() => setIsReaderOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 shadow-sm transition-all hover:bg-blue-50 hover:text-blue-700 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-blue-400 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+              >
+                <BookOpen className="h-4 w-4 stroke-[1.5]" />
+                <span>Reader</span>
+              </button>
+            )}
           </div>
 
           <div className="mb-6 flex items-start gap-5">
@@ -117,8 +130,14 @@ export default function BookmarkDetail() {
               </div>
             )}
             <div className="pt-1">
-              <h2 className="mb-2 text-2xl leading-tight font-bold tracking-tight text-slate-900 dark:text-white">
+              <h2 className="mb-2 flex items-center gap-2 text-2xl leading-tight font-bold tracking-tight text-slate-900 dark:text-white">
                 {bookmark.title || "Untitled"}
+                {bookmark.isDeadLink && (
+                  <span className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    <AlertTriangle className="h-3.5 w-3.5 stroke-[2]" />
+                    Dead Link
+                  </span>
+                )}
               </h2>
               <a
                 href={bookmark.bookmarkURL}
@@ -244,6 +263,12 @@ export default function BookmarkDetail() {
         <div className="flex-1 overflow-y-auto bg-slate-50/50 p-8 dark:bg-slate-950/50">
           <BookmarkPreview url={bookmark.bookmarkURL} />
         </div>
+
+        <ReaderView
+          bookmark={bookmark}
+          isOpen={isReaderOpen}
+          onClose={() => setIsReaderOpen(false)}
+        />
       </motion.div>
     </AnimatePresence>
   );

@@ -6,7 +6,9 @@ import {
   useExportData,
   useImportData,
   useDeleteAllData,
+  useUpdateUsername,
 } from "@/hooks/useSettings";
+import { toast } from "sonner";
 
 export default function SettingsModal() {
   const { isSettingsModalOpen, setSettingsModalOpen } = useAppStore();
@@ -16,12 +18,21 @@ export default function SettingsModal() {
   const exportData = useExportData();
   const importData = useImportData();
   const deleteAllData = useDeleteAllData();
+  const updateUsername = useUpdateUsername();
 
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileInputRef = useRef(null);
   const [profileImageError, setProfileImageError] = useState(false);
 
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+
   if (!isSettingsModalOpen) return null;
+
+  // Set initial username when user loads
+  if (userDetails?.username && newUsername === "" && !isEditingUsername) {
+    setNewUsername(userDetails.username);
+  }
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -72,7 +83,7 @@ export default function SettingsModal() {
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-48 space-y-1 border-r border-slate-200 p-4 dark:border-slate-800">
+          <div className="w-56 shrink-0 space-y-1 border-r border-slate-200 p-4 dark:border-slate-800">
             <button
               onClick={() => setActiveTab("account")}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -145,8 +156,63 @@ export default function SettingsModal() {
                         <div className="font-medium text-slate-900 dark:text-white">
                           {userDetails.name || "User"}
                         </div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                        <div className="mb-2 text-sm text-slate-500 dark:text-slate-400">
                           {userDetails.email || "No email available"}
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <label className="w-20 text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Username
+                          </label>
+                          {isEditingUsername ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={newUsername}
+                                onChange={(e) => setNewUsername(e.target.value)}
+                                className="h-8 rounded-md border border-slate-300 px-2 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                placeholder="Username"
+                              />
+                              <button
+                                onClick={() => {
+                                  if (
+                                    newUsername.trim() === userDetails.username
+                                  ) {
+                                    setIsEditingUsername(false);
+                                    return;
+                                  }
+                                  updateUsername.mutate(newUsername, {
+                                    onSuccess: () =>
+                                      setIsEditingUsername(false),
+                                  });
+                                }}
+                                disabled={updateUsername.isPending}
+                                className="rounded-md bg-blue-500 px-3 py-1 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNewUsername(userDetails.username || "");
+                                  setIsEditingUsername(false);
+                                }}
+                                className="rounded-md bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-900 dark:text-white">
+                                {userDetails.username || "Not set"}
+                              </span>
+                              <button
+                                onClick={() => setIsEditingUsername(true)}
+                                className="text-xs font-medium text-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

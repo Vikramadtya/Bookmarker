@@ -12,6 +12,8 @@ import { BookmarksModule } from './bookmarks/bookmarks.module';
 import { AuthModule } from './auth/auth.module';
 import { SettingsModule } from './settings/settings.module';
 import { HealthModule } from './health/health.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -108,12 +110,16 @@ import { HealthModule } from './health/health.module';
     // ── Health Checks ────────────────────────────────────────────────────────
     HealthModule,
 
+    // ── Cron Jobs ────────────────────────────────────────────────────────────
+    ScheduleModule.forRoot(),
+
     // ── Feature Modules ───────────────────────────────────────────────────────
     EventsModule,
     FoldersModule,
     BookmarksModule,
     AuthModule,
     SettingsModule,
+    UsersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

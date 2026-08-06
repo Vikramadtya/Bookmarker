@@ -15,12 +15,15 @@ export class BookmarksRepository extends BaseRepository<BookmarkDocument> {
 
   async findWithFilter(
     filter: Record<string, unknown>,
+    options?: { limit?: number },
   ): Promise<BookmarkDocument[]> {
-    return this.model
-      .find(filter)
-      .sort({ creationDate: -1 })
-      .lean({ virtuals: true })
-      .exec() as unknown as Promise<BookmarkDocument[]>;
+    let query = this.model.find(filter).sort({ creationDate: -1 });
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+    return query.lean({ virtuals: true }).exec() as unknown as Promise<
+      BookmarkDocument[]
+    >;
   }
 
   async bulkDelete(userId: string, ids: string[]): Promise<void> {

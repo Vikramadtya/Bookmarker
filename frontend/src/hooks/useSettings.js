@@ -58,3 +58,26 @@ export function useImportData() {
     },
   });
 }
+
+export function useUpdateUsername() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (username) =>
+      makeApiRequest({
+        url: `${BASE_URL}/users/me/username`,
+        method: "PUT",
+        body: { username },
+      }),
+    onSuccess: () => {
+      // Refresh user details
+      queryClient.invalidateQueries({ queryKey: ["auth-status"] });
+      toast.success("Username updated successfully!");
+    },
+    onError: (error) => {
+      toast.error(
+        error?.response?.data?.message || "Failed to update username"
+      );
+    },
+  });
+}

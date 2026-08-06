@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsBoolean } from 'class-validator';
 
 export class CreateFolderDto {
   @IsString()
@@ -7,4 +7,8 @@ export class CreateFolderDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
 }

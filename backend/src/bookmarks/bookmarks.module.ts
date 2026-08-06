@@ -6,6 +6,7 @@ import { BookmarksService } from './bookmarks.service';
 import { BookmarksRepository } from './bookmarks.repository';
 import { Bookmark, BookmarkSchema } from './schemas/bookmark.schema';
 import { ScrapeProcessor } from './scrape.processor';
+import { DeadLinkService } from './dead-link.service';
 
 @Module({
   imports: [
@@ -17,7 +18,12 @@ import { ScrapeProcessor } from './scrape.processor';
     }),
   ],
   controllers: [BookmarksController],
-  providers: [BookmarksService, BookmarksRepository, ScrapeProcessor],
+  providers: [
+    BookmarksService,
+    BookmarksRepository,
+    ScrapeProcessor,
+    DeadLinkService,
+  ],
   exports: [BookmarksService],
 })
 export class BookmarksModule {}

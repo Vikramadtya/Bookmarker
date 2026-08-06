@@ -50,3 +50,19 @@ export function useDeleteFolder() {
     },
   });
 }
+
+export function useUpdateFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }) =>
+      makeApiRequest({
+        url: `${BASE_URL}/folders/${id}`,
+        method: "PUT",
+        name: "Update Folder",
+        body: data,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+    },
+  });
+}

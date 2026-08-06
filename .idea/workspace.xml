@@ -4,7 +4,35 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a29715a0-604d-4f3d-a03b-baa7ac235612" name="Changes" comment="" />
+    <list default="true" id="a29715a0-604d-4f3d-a03b-baa7ac235612" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/auth/auth.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/auth/auth.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/auth/auth.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/auth/auth.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.repository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.repository.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/schemas/bookmark.schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/schemas/bookmark.schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/scrape.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/scrape.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/folders.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/folders.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/folders.repository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/folders.repository.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/folders.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/folders.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/schemas/folder.schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/schemas/folder.schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/bookmarks/BookmarkDetail.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/bookmarks/BookmarkDetail.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/bookmarks/BookmarkList.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/bookmarks/BookmarkList.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/settings/SettingsModal.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/settings/SettingsModal.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/sidebar/folderSideBar.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/sidebar/folderSideBar.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useFolders.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useFolders.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useSettings.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useSettings.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/store/useAppStore.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/store/useAppStore.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -118,7 +146,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager" selected="npm.start:frontend">
+  <component name="RunManager" selected="npm.start:backend">
     <configuration name="start" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
@@ -151,8 +179,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="npm.start:frontend" />
         <item itemvalue="npm.start:backend" />
+        <item itemvalue="npm.start:frontend" />
         <item itemvalue="npm.start" />
       </list>
     </recent_temporary>

@@ -24,6 +24,18 @@ export class Bookmark {
   @Prop()
   description: string;
 
+  @Prop()
+  content: string;
+
+  @Prop({ type: Boolean, default: false })
+  isArticle: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isDeadLink: boolean;
+
+  @Prop({ type: Date, default: null })
+  lastCheckedAt: Date;
+
   @Prop({ type: [String], default: [] })
   tags: string[];
 
@@ -46,6 +58,9 @@ export const BookmarkSchema = SchemaFactory.createForClass(Bookmark);
 BookmarkSchema.index({ userId: 1, folderId: 1 });
 BookmarkSchema.index({ userId: 1, isFavorite: 1 });
 BookmarkSchema.index({ userId: 1, createdAt: -1 });
+
+// Full-text search index
+BookmarkSchema.index({ title: 'text', description: 'text', content: 'text' });
 
 BookmarkSchema.virtual('id').get(function (this: BookmarkDocument) {
   return this._id;

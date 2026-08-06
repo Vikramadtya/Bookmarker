@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { useAppStore } from "@/store/useAppStore";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { Routes, Route } from "react-router-dom";
+import PublicCollectionView from "@/components/PublicCollectionView";
 
 export default function App() {
   const { data: user, isLoading: isAuthLoading } = useAuth();
@@ -51,26 +53,37 @@ export default function App() {
     }
   };
 
-  if (isAuthLoading) {
+  // We let the Routes handle auth so that public routes are accessible
+  const renderApp = () => {
+    if (isAuthLoading) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-slate-950">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-700 border-t-white" />
+        </div>
+      );
+    }
+    if (!user) {
+      return <LandingPage />;
+    }
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-700 border-t-white" />
-      </div>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div className="flex h-screen overflow-hidden bg-white font-sans text-slate-900 transition-colors duration-200 selection:bg-blue-500/30 dark:bg-slate-950 dark:text-slate-100">
+          <FolderSidebar />
+          <BookmarksView />
+          <CommandPalette />
+          <SettingsModal />
+        </div>
+      </DndContext>
     );
-  }
-
-  if (!user) {
-    return <LandingPage />;
-  }
+  };
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex h-screen overflow-hidden bg-white font-sans text-slate-900 transition-colors duration-200 selection:bg-blue-500/30 dark:bg-slate-950 dark:text-slate-100">
-        <FolderSidebar />
-        <BookmarksView />
-        <CommandPalette />
-        <SettingsModal />
-      </div>
-    </DndContext>
+    <Routes>
+      <Route
+        path="/public/:username/:slug"
+        element={<PublicCollectionView />}
+      />
+      <Route path="*" element={renderApp()} />
+    </Routes>
   );
 }

@@ -32,7 +32,14 @@ export class FoldersRepository extends BaseRepository<FolderDocument> {
     return this.model
       .findOneAndUpdate(
         { name: 'Inbox', userId, parentId: null },
-        { $setOnInsert: { name: 'Inbox', userId, parentId: null } },
+        {
+          $setOnInsert: {
+            name: 'Inbox',
+            userId,
+            slug: 'inbox',
+            parentId: null,
+          },
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
       .lean({ virtuals: true })

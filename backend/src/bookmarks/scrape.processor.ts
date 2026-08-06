@@ -6,6 +6,8 @@ import sanitizeHtml from 'sanitize-html';
 import { BookmarksRepository } from './bookmarks.repository';
 import { EventsGateway } from '../events/events.gateway';
 import puppeteer from 'puppeteer';
+import { Readability } from '@mozilla/readability';
+import { JSDOM } from 'jsdom';
 
 @Processor('scrape', { concurrency: 3 })
 export class ScrapeProcessor extends WorkerHost {
@@ -25,13 +27,15 @@ export class ScrapeProcessor extends WorkerHost {
 
     try {
       const metadata = await this.extractMetadata(url);
-      const { title, description, logoURL } = metadata;
+      const { title, description, logoURL, content, isArticle } = metadata;
 
       // ✅ Fixed: was `update(bookmarkId, ...)` which takes a filterQuery — must use updateById
       const updated = await this.bookmarksRepository.updateById(bookmarkId, {
         title: title || 'Untitled',
         description,
         logoURL,
+        content: content || '',
+        isArticle: isArticle || false,
       });
 
       if (updated) {
@@ -90,7 +94,13 @@ export class ScrapeProcessor extends WorkerHost {
 
   private async extractMetadata(
     url: string,
-  ): Promise<{ title: string; description: string; logoURL: string }> {
+  ): Promise<{
+    title: string;
+    description: string;
+    logoURL: string;
+    content?: string;
+    isArticle?: boolean;
+  }> {
     // Fast path: plain HTTP fetch + Cheerio (no JS execution)
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
@@ -109,7 +119,13 @@ export class ScrapeProcessor extends WorkerHost {
   private parseHtml(
     html: string,
     baseUrl: string,
-  ): { title: string; description: string; logoURL: string } {
+  ): {
+    title: string;
+    description: string;
+    logoURL: string;
+    content?: string;
+    isArticle?: boolean;
+  } {
     const $ = cheerio.load(html);
     const title =
       $('meta[property="og:title"]').attr('content') || $('title').text() || '';
@@ -126,16 +142,46 @@ export class ScrapeProcessor extends WorkerHost {
 
     logoURL = this.resolveUrl(logoURL, baseUrl);
 
+    let articleContent = '';
+    let isArticle = false;
+    try {
+      const doc = new JSDOM(html, { url: baseUrl });
+      const reader = new Readability(doc.window.document);
+      const article = reader.parse();
+      if (article && article.content) {
+        articleContent = sanitizeHtml(article.content, {
+          allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+            'img',
+            'h1',
+            'h2',
+          ]),
+        });
+        isArticle = true;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to parse Readability for ${baseUrl}: ${err.message}`,
+      );
+    }
+
     return {
       title: sanitizeHtml(title.trim(), { allowedTags: [] }),
       description: sanitizeHtml(description.trim(), { allowedTags: [] }),
       logoURL,
+      content: articleContent,
+      isArticle,
     };
   }
 
   private async scrapeWithPuppeteer(
     url: string,
-  ): Promise<{ title: string; description: string; logoURL: string }> {
+  ): Promise<{
+    title: string;
+    description: string;
+    logoURL: string;
+    content?: string;
+    isArticle?: boolean;
+  }> {
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],

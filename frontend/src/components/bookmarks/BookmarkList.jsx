@@ -9,9 +9,13 @@ import {
   Loader2,
   ExternalLink,
   Folder,
+  AlertTriangle,
+  LayoutGrid,
+  List as ListIcon,
 } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   useBookmarks,
   useDeleteBookmark,
@@ -41,6 +45,8 @@ export default function BookmarkList({ activeFolder }) {
     selectedBookmarks,
     toggleBookmarkSelection,
     clearBookmarkSelection,
+    viewMode,
+    setViewMode,
   } = useAppStore();
 
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -52,6 +58,10 @@ export default function BookmarkList({ activeFolder }) {
   }, [searchQuery]);
 
   const [selectedTag, setSelectedTag] = useState("");
+
+  useHotkeys("v", () => setViewMode(viewMode === "list" ? "grid" : "list"), [
+    viewMode,
+  ]);
 
   const activeFields = Object.entries(searchFields)
     .filter(([_, isActive]) => isActive)
@@ -113,7 +123,7 @@ export default function BookmarkList({ activeFolder }) {
   const virtualizer = useVirtualizer({
     count: bookmarks.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 96,
+    estimateSize: () => (viewMode === "list" ? 96 : 256),
     overscan: 10,
   });
 
@@ -177,6 +187,19 @@ export default function BookmarkList({ activeFolder }) {
               )
             )}
           </select>
+
+          <button
+            onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
+            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-600 uppercase transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+            title="Toggle View Mode (Press V)"
+          >
+            {viewMode === "list" ? (
+              <LayoutGrid className="h-3 w-3 stroke-[2]" />
+            ) : (
+              <ListIcon className="h-3 w-3 stroke-[2]" />
+            )}
+            <span className="hidden sm:inline">VIEW (V)</span>
+          </button>
         </div>
       </div>
 
@@ -201,27 +224,42 @@ export default function BookmarkList({ activeFolder }) {
           </div>
         ) : (
           <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              width: "100%",
-              position: "relative",
-            }}
+            style={
+              viewMode === "grid"
+                ? {
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(220px, 1fr))",
+                    gap: "1rem",
+                    width: "100%",
+                  }
+                : {
+                    height: `${virtualizer.getTotalSize()}px`,
+                    width: "100%",
+                    position: "relative",
+                  }
+            }
           >
             <AnimatePresence>
-              {virtualizer.getVirtualItems().map((virtualItem) => {
-                const b = bookmarks[virtualItem.index];
+              {(viewMode === "grid"
+                ? bookmarks
+                : virtualizer.getVirtualItems()
+              ).map((item) => {
+                const b = viewMode === "grid" ? item : bookmarks[item.index];
+                if (!b) return null;
                 return (
                   <DraggableBookmark
                     key={b.id}
                     b={b}
                     selectedId={selectedBookmark?.id}
                     onSelect={setSelectedBookmark}
-                    virtualItem={virtualItem}
+                    virtualItem={viewMode === "list" ? item : null}
                     handleDelete={handleDeleteClick}
                     isSelected={selectedBookmarks.has(b.id)}
                     toggleSelection={toggleSelection}
                     handleToggleFavorite={handleToggleFavorite}
                     folders={folders}
+                    viewMode={viewMode}
                   />
                 );
               })}
@@ -389,6 +427,7 @@ function DraggableBookmark({
   toggleSelection,
   handleToggleFavorite,
   folders,
+  viewMode = "list",
 }) {
   const [imageError, setImageError] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -411,11 +450,12 @@ function DraggableBookmark({
   const breadcrumb = getFolderBreadcrumb();
 
   const style = {
-    position: "absolute",
-    top: `${virtualItem.start}px`,
+    position: viewMode === "list" ? "absolute" : "relative",
+    top: viewMode === "list" && virtualItem ? `${virtualItem.start}px` : "auto",
     left: 0,
     width: "100%",
-    height: `${virtualItem.size - 8}px`,
+    height:
+      viewMode === "list" && virtualItem ? `${virtualItem.size - 8}px` : "auto",
     transform: transform
       ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
       : undefined,
@@ -435,16 +475,33 @@ function DraggableBookmark({
       onClick={() => onSelect(b)}
       style={style}
       className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-xl p-3 transition-all duration-200",
+        "group relative cursor-pointer overflow-hidden rounded-xl transition-all duration-200",
+        viewMode === "grid"
+          ? "flex h-full w-full flex-col p-4 shadow-sm"
+          : "p-3",
         selectedId === b.id
           ? "border border-slate-200 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] dark:border-slate-800 dark:bg-slate-900"
           : isSelected
             ? "border-blue-200 bg-blue-50/50 dark:border-blue-800/50 dark:bg-blue-900/10"
-            : "border border-transparent bg-transparent hover:border-slate-200 hover:bg-white dark:hover:border-slate-800 dark:hover:bg-slate-900"
+            : "border border-transparent bg-transparent hover:border-slate-200 hover:bg-white hover:shadow-sm dark:hover:border-slate-800 dark:hover:bg-slate-900"
       )}
     >
-      <div className="relative z-10 flex h-full items-center justify-between gap-3">
-        <div className="flex h-full w-full items-center gap-3 overflow-hidden">
+      <div
+        className={cn(
+          "relative z-10",
+          viewMode === "grid"
+            ? "flex h-full flex-col gap-4"
+            : "flex h-full items-center justify-between gap-3"
+        )}
+      >
+        <div
+          className={cn(
+            "flex overflow-hidden",
+            viewMode === "grid"
+              ? "flex-col items-start gap-4"
+              : "h-full w-full items-center gap-3"
+          )}
+        >
           <button
             onClick={(e) => toggleSelection(e, b.id)}
             className={cn(
@@ -461,33 +518,70 @@ function DraggableBookmark({
             )}
           </button>
 
-          {b.logoURL && !imageError ? (
-            <img
-              src={b.logoURL}
-              alt=""
-              className="h-8 w-8 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-1 dark:border-slate-700 dark:bg-slate-800"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-              <Globe className="h-4 w-4 stroke-[1.5] text-slate-300 dark:text-slate-600" />
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
+          <div
+            className={cn(
+              "flex",
+              viewMode === "grid" ? "w-full items-center justify-between" : ""
+            )}
+          >
+            {b.logoURL && !imageError ? (
+              <img
+                src={b.logoURL}
+                alt=""
+                className={cn(
+                  "shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-1 dark:border-slate-700 dark:bg-slate-800",
+                  viewMode === "grid" ? "h-10 w-10" : "h-8 w-8"
+                )}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div
+                className={cn(
+                  "flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50",
+                  viewMode === "grid" ? "h-10 w-10" : "h-8 w-8"
+                )}
+              >
+                <Globe className="h-4 w-4 stroke-[1.5] text-slate-300 dark:text-slate-600" />
+              </div>
+            )}
+
+            {viewMode === "grid" && (
+              <div className="flex items-center gap-1">
+                {breadcrumb && (
+                  <div className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 dark:bg-slate-800">
+                    <Folder className="h-3 w-3 shrink-0 stroke-[2] text-slate-400 dark:text-slate-500" />
+                    <span className="max-w-[80px] truncate text-[9px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+                      {breadcrumb}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="w-full min-w-0 flex-1">
             <p
               className={cn(
-                "truncate text-sm font-medium transition-colors",
+                "flex items-center gap-1 truncate text-sm font-medium transition-colors",
                 selectedId === b.id
                   ? "text-slate-900 dark:text-white"
                   : "text-slate-700 dark:text-slate-300"
               )}
             >
-              {b.title || "Untitled"}
+              <span className="truncate">{b.title || "Untitled"}</span>
+              {b.isDeadLink && (
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+              )}
             </p>
             <p className="mt-0.5 truncate text-[11px] font-light text-slate-500">
               {b.bookmarkURL}
             </p>
-            {breadcrumb && (
+            {viewMode === "grid" && b.description && (
+              <p className="mt-2 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">
+                {b.description}
+              </p>
+            )}
+            {viewMode === "list" && breadcrumb && (
               <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
                 <Folder className="h-3 w-3 shrink-0 stroke-[2] text-slate-400 dark:text-slate-500" />
                 <span className="truncate text-[10px] font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
@@ -498,7 +592,14 @@ function DraggableBookmark({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-all group-hover:opacity-100">
+        <div
+          className={cn(
+            "flex items-center gap-1",
+            viewMode === "grid"
+              ? "mt-auto justify-between border-t border-slate-100 pt-3 dark:border-slate-800"
+              : "shrink-0 opacity-0 transition-all group-hover:opacity-100"
+          )}
+        >
           <a
             href={b.bookmarkURL}
             target="_blank"

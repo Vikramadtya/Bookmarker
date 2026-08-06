@@ -7,6 +7,8 @@ export const useAppStore = create(
       // UI State
       isSidebarCompact: false,
       isSettingsModalOpen: false,
+      viewMode: "list", // 'list' | 'grid'
+      setViewMode: (mode) => set({ viewMode: mode }, false, "setViewMode"),
 
       toggleSidebar: () =>
         set(
@@ -77,6 +79,7 @@ export const useAppStore = create(
         description: true,
         notes: true,
         tags: true,
+        content: true,
       },
       toggleSearchField: (field) =>
         set(
