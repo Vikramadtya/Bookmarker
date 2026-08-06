@@ -41,10 +41,13 @@ Bookmarker is a self-hosted web app where you can save, organize, and search all
 
 **The core idea:**
 
-1. You paste a URL and hit save.
-2. The app **immediately** saves the bookmark and returns it to you (fast!).
-3. In the **background**, a queue worker fires up a browser, scrapes the page title, description, and favicon, and saves them to the database.
-4. The UI **automatically updates** in real-time via a WebSocket when the scraping is done — no manual refresh needed.
+- **Smart Bookmarking**: Drop a URL, and Bookmarker automatically extracts the page title, description, and favicon in the background using a reliable web scraper.
+- **Nested Organization**: Keep everything incredibly tidy with multi-level Collections and Folders.
+- **Real-Time UI**: Experience zero latency—the UI updates instantly via WebSockets as your links are scraped in the background.
+- **Public Shared Collections**: Right-click any collection to generate a beautifully styled, read-only public URL you can share with the world.
+- **Command Palette (⌘K)**: Instantly jump between folders or search your entire bookmark library from anywhere.
+- **Drag & Drop**: Effortlessly drag bookmarks into different folders right from the sidebar.
+- **Multi-Tenant Ready**: Designed from day one as a SaaS architecture where all data is strictly scoped per user via Google OAuth.
 
 ---
 
@@ -720,3 +723,12 @@ Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 **Code style:** Run `npm run format` in either `frontend/` or `backend/` to auto-format with Prettier before committing.
 
 **Pre-commit hooks:** Husky runs `lint-staged` automatically on `git commit` — it formats changed files with Prettier so you never commit unformatted code.
+
+## Database Migrations
+
+If deploying this over an older installation where folders didn't have URL slugs, run the migration script to backfill slugs so that public links work correctly:
+
+```bash
+cd backend
+node scripts/migrate-slugs.js
+```
