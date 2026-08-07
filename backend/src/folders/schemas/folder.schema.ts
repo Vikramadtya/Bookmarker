@@ -23,6 +23,15 @@ export class Folder {
 
   @Prop({ type: Boolean, default: false })
   isPublic: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isHidden: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isLocked: boolean;
+
+  @Prop({ type: String, default: null })
+  passwordHash: string;
 }
 
 export const FolderSchema = SchemaFactory.createForClass(Folder);

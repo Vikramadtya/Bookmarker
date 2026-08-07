@@ -11,6 +11,8 @@ import {
   HttpStatus,
   UseInterceptors,
   UseGuards,
+  Headers,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +26,7 @@ import {
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { AuthGuard } from '@nestjs/passport';
 import { BookmarksService } from './bookmarks.service';
+import { FoldersService } from '../folders/folders.service';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
 import { UpdateBookmarkDto } from './dto/update-bookmark.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
@@ -35,7 +38,10 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 @UseGuards(AuthGuard('jwt'))
 @Controller('api/v1/bookmarks')
 export class BookmarksController {
-  constructor(private readonly bookmarksService: BookmarksService) {}
+  constructor(
+    private readonly bookmarksService: BookmarksService,
+    private readonly foldersService: FoldersService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -63,10 +69,38 @@ export class BookmarksController {
   })
   async getBookmarks(
     @CurrentUser('email') userId: string,
+    @Headers('x-folder-token') folderToken?: string,
     @Query('folderId') folderId?: string,
     @Query('q') q?: string,
     @Query('fields') fields?: string,
   ) {
+    if (folderId && folderId !== 'root' && folderId !== 'favorites') {
+      // Validate folder access if it's locked
+      const isUUIDList = /^[0-9a-fA-F-]{36}(,[0-9a-fA-F-]{36})*$/.test(
+        folderId,
+      );
+      if (isUUIDList) {
+        const ids = folderId.split(',');
+        for (const id of ids) {
+          const folder = await this.foldersService.getFolderByIdUnscoped(id);
+          if (folder && folder.isLocked) {
+            if (
+              !folderToken ||
+              !this.foldersService.verifyUnlockToken(
+                folder._id,
+                folder.passwordHash,
+                folderToken,
+              )
+            ) {
+              throw new UnauthorizedException(
+                'Folder is locked. Provide a valid x-folder-token header.',
+              );
+            }
+          }
+        }
+      }
+    }
+
     return this.bookmarksService.getBookmarks(userId, folderId, q, fields);
   }
 

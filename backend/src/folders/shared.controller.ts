@@ -1,4 +1,12 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { FoldersService } from './folders.service';
 import { BookmarksService } from '../bookmarks/bookmarks.service';
 import { UsersService } from '../users/users.service';
@@ -24,6 +32,36 @@ export class SharedController {
       slug,
     );
     return folder;
+  }
+
+  @Post(':username/:slug/unlock')
+  async unlockPublicFolder(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Body('password') password?: string,
+  ) {
+    const user = await this.usersService.findByUsername(username);
+    if (!user) throw new NotFoundException('User not found');
+
+    const folder = await this.foldersService.getPublicFolderBySlug(
+      user.email,
+      slug,
+    );
+
+    const isValid = await this.foldersService.verifyPassword(
+      folder._id,
+      password,
+    );
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid folder password');
+    }
+
+    return {
+      token: this.foldersService.generateUnlockToken(
+        folder._id,
+        folder.passwordHash,
+      ),
+    };
   }
 
   @Get(':username/:slug/bookmarks')

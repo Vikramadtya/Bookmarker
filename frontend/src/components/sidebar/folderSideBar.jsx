@@ -9,6 +9,10 @@ import {
   LogOut,
   Settings,
   Globe,
+  Lock,
+  Unlock,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import { useState } from "react";
@@ -22,7 +26,7 @@ import {
 } from "@/hooks/useFolders";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, makeApiRequest } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BASE_URL } from "@/lib/metadata";
 
@@ -54,6 +58,11 @@ export default function FolderSidebar() {
 
   // UI State for expanding/collapsing collections
   const [expandedCollections, setExpandedCollections] = useState({});
+  const [showHidden, setShowHidden] = useState(false);
+  const [unlockFolderInfo, setUnlockFolderInfo] = useState(null);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlockError, setUnlockError] = useState("");
+  const [isUnlocking, setIsUnlocking] = useState(false);
 
   const toggleCollection = (id) => {
     setExpandedCollections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -78,7 +87,9 @@ export default function FolderSidebar() {
   };
 
   const inbox = folders.find((f) => !f.parentId && f.name === "Inbox");
-  const collections = folders.filter((f) => !f.parentId && f.name !== "Inbox");
+  const collections = folders.filter(
+    (f) => !f.parentId && f.name !== "Inbox" && (!f.isHidden || showHidden)
+  );
   const getSubFolders = (collectionId) =>
     folders.filter((f) => f.parentId === collectionId);
 
@@ -238,6 +249,7 @@ export default function FolderSidebar() {
               user={user}
               onContextMenu={handleContextMenu}
               onPublicIconClick={setPublicModalFolder}
+              onUnlockPrompt={setUnlockFolderInfo}
             />
           </div>
         )}
@@ -257,6 +269,13 @@ export default function FolderSidebar() {
                     : "text-slate-600 hover:bg-slate-200/30 dark:text-slate-400 dark:hover:bg-slate-800/30"
                 )}
                 onClick={() => {
+                  const tokens = JSON.parse(
+                    sessionStorage.getItem("folder_tokens") || "{}"
+                  );
+                  if (collection.isLocked && !tokens[collection.id]) {
+                    setUnlockFolderInfo(collection);
+                    return;
+                  }
                   toggleCollection(collection.id);
                   const subFolderIds = getSubFolders(collection.id)
                     .map((f) => f.id)
@@ -277,8 +296,14 @@ export default function FolderSidebar() {
                     <ChevronRight className="h-4 w-4 shrink-0 stroke-[1.5] text-slate-400" />
                   )}
                   {!compact && (
-                    <span className="truncate tracking-wide">
+                    <span className="flex items-center gap-2 truncate tracking-wide">
                       {collection.name}
+                      {collection.isLocked && (
+                        <Lock className="h-3 w-3 text-slate-400" />
+                      )}
+                      {collection.isHidden && (
+                        <EyeOff className="h-3 w-3 text-slate-400" />
+                      )}
                     </span>
                   )}
                 </div>
@@ -342,6 +367,7 @@ export default function FolderSidebar() {
                       user={user}
                       onContextMenu={handleContextMenu}
                       onPublicIconClick={setPublicModalFolder}
+                      onUnlockPrompt={setUnlockFolderInfo}
                     />
                   ))}
                 </div>
@@ -383,6 +409,26 @@ export default function FolderSidebar() {
             )}
           </div>
         ) : null}
+
+        <button
+          onClick={() => setShowHidden(!showHidden)}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
+            compact && "justify-center px-0"
+          )}
+          title={
+            showHidden ? "Hide Hidden Collections" : "Show Hidden Collections"
+          }
+        >
+          {showHidden ? (
+            <EyeOff className="h-4 w-4 shrink-0 stroke-[1.5]" />
+          ) : (
+            <Eye className="h-4 w-4 shrink-0 stroke-[1.5]" />
+          )}
+          {!compact && (
+            <span>{showHidden ? "Hide Hidden" : "Show Hidden"}</span>
+          )}
+        </button>
 
         <button
           onClick={() => setSettingsModalOpen(true)}
@@ -469,6 +515,59 @@ export default function FolderSidebar() {
             >
               <Globe className="h-4 w-4" />
               {contextMenu.folder.isPublic ? "Public Settings" : "Make Public"}
+            </button>
+
+            <button
+              onClick={() => {
+                updateFolder.mutate({
+                  id: contextMenu.folder.id,
+                  data: { isHidden: !contextMenu.folder.isHidden },
+                });
+                setContextMenu(null);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              {contextMenu.folder.isHidden ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+              {contextMenu.folder.isHidden
+                ? "Show Collection"
+                : "Hide Collection"}
+            </button>
+
+            <button
+              onClick={() => {
+                if (contextMenu.folder.isLocked) {
+                  updateFolder.mutate({
+                    id: contextMenu.folder.id,
+                    data: { isLocked: false },
+                  });
+                } else {
+                  setUnlockFolderInfo(contextMenu.folder); // We will reuse the unlock modal state to set password too! Wait, better to create a separate prompt for setting password.
+                  // Actually, a simple window.prompt is easiest for MVP setting.
+                  const pwd = window.prompt(
+                    "Enter a password to lock this collection:"
+                  );
+                  if (pwd)
+                    updateFolder.mutate({
+                      id: contextMenu.folder.id,
+                      data: { password: pwd },
+                    });
+                }
+                setContextMenu(null);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              {contextMenu.folder.isLocked ? (
+                <Unlock className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              {contextMenu.folder.isLocked
+                ? "Remove Password"
+                : "Lock with Password"}
             </button>
 
             <button
@@ -587,6 +686,87 @@ export default function FolderSidebar() {
           </div>
         </div>
       )}
+      {unlockFolderInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+              <Lock className="h-5 w-5 text-blue-500" />
+              Unlock Collection
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Enter the password to unlock{" "}
+              <strong>{unlockFolderInfo.name}</strong>.
+            </p>
+
+            <form
+              className="mt-6 space-y-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsUnlocking(true);
+                setUnlockError("");
+                try {
+                  const data = await makeApiRequest({
+                    url: `/api/v1/folders/${unlockFolderInfo.id}/unlock`,
+                    method: "POST",
+                    body: { password: unlockPassword },
+                  });
+                  const tokens = JSON.parse(
+                    sessionStorage.getItem("folder_tokens") || "{}"
+                  );
+                  tokens[unlockFolderInfo.id] = data.token;
+                  sessionStorage.setItem(
+                    "folder_tokens",
+                    JSON.stringify(tokens)
+                  );
+
+                  // Refetch active folder if we are already viewing it to load the bookmarks
+                  if (activeFolder.includes(unlockFolderInfo.id)) {
+                    setActiveFolder(activeFolder);
+                  }
+
+                  toast.success("Folder unlocked!");
+                  setUnlockFolderInfo(null);
+                  setUnlockPassword("");
+                } catch (error) {
+                  setUnlockError(error.message || "Invalid password");
+                } finally {
+                  setIsUnlocking(false);
+                }
+              }}
+            >
+              <input
+                type="password"
+                placeholder="Password"
+                autoFocus
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                value={unlockPassword}
+                onChange={(e) => setUnlockPassword(e.target.value)}
+              />
+              {unlockError && (
+                <p className="text-xs text-red-500">{unlockError}</p>
+              )}
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-blue-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+                disabled={isUnlocking}
+              >
+                {isUnlocking ? "Unlocking..." : "Unlock"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUnlockFolderInfo(null);
+                  setUnlockPassword("");
+                  setUnlockError("");
+                }}
+                className="w-full rounded-lg bg-slate-200 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:ring-2 focus:ring-slate-500/50 focus:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
@@ -601,6 +781,7 @@ function DroppableFolder({
   user,
   onContextMenu,
   onPublicIconClick,
+  onUnlockPrompt,
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: folder.id,
@@ -621,7 +802,16 @@ function DroppableFolder({
           ? "bg-blue-100/80 ring-1 ring-blue-500/50 dark:bg-blue-900/40"
           : ""
       )}
-      onClick={() => setActiveFolder(folder.id)}
+      onClick={() => {
+        const tokens = JSON.parse(
+          sessionStorage.getItem("folder_tokens") || "{}"
+        );
+        if (folder.isLocked && !tokens[folder.id]) {
+          onUnlockPrompt?.(folder);
+          return;
+        }
+        setActiveFolder(folder.id);
+      }}
       onContextMenu={(e) => onContextMenu?.(e, folder)}
     >
       <div
@@ -653,11 +843,13 @@ function DroppableFolder({
         {!compact && (
           <span
             className={cn(
-              "truncate tracking-wide",
+              "flex items-center gap-1 truncate tracking-wide",
               isTopLevel ? "" : "text-xs"
             )}
           >
             {folder.name}
+            {folder.isLocked && <Lock className="h-3 w-3 text-slate-400" />}
+            {folder.isHidden && <EyeOff className="h-3 w-3 text-slate-400" />}
           </span>
         )}
       </div>
