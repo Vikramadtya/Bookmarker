@@ -1,18 +1,4 @@
-import {
-  Plus,
-  Trash2,
-  Globe,
-  Search,
-  CheckSquare,
-  Square,
-  FolderOutput,
-  Loader2,
-  ExternalLink,
-  Folder,
-  AlertTriangle,
-  LayoutGrid,
-  List as ListIcon,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -28,7 +14,10 @@ import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useDraggable } from "@dnd-kit/core";
+
+import BookmarkListHeader from "./BookmarkListHeader";
+import BookmarkBulkActions from "./BookmarkBulkActions";
+import DraggableBookmark from "./DraggableBookmark";
 
 export default function BookmarkList({ activeFolder }) {
   const { data: folders = [] } = useFolders();
@@ -129,79 +118,19 @@ export default function BookmarkList({ activeFolder }) {
 
   return (
     <div className="relative flex w-1/3 flex-col border-r border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950">
-      <div className="z-10 flex items-center justify-between p-4 pb-2">
-        <h2 className="text-lg font-semibold tracking-wide text-slate-800 dark:text-slate-200">
-          Bookmarks
-        </h2>
-        <button
-          onClick={() => openBookmarkModal("add")}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-        >
-          <Plus className="h-4 w-4 stroke-[1.5]" />
-          <span>New</span>
-        </button>
-      </div>
-
-      <div className="z-10 flex flex-col gap-2.5 border-b border-slate-100 px-4 pb-4 dark:border-slate-800/50">
-        <div className="group relative">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 stroke-[1.5] text-slate-400 transition-colors group-focus-within:text-blue-500" />
-          <input
-            type="text"
-            placeholder={`Search in ${folderName}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white py-2 pr-4 pl-9 text-sm shadow-sm transition-all outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-900/80 dark:focus:ring-blue-500/20"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-1.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {["title", "description", "notes", "tags"].map((field) => (
-              <button
-                key={field}
-                type="button"
-                onClick={() => toggleSearchField(field)}
-                className={cn(
-                  "rounded-md border px-2 py-1 text-[9px] font-semibold tracking-wider uppercase transition-all select-none",
-                  searchFields[field]
-                    ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-800/50 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-slate-800/80"
-                )}
-              >
-                {field}
-              </button>
-            ))}
-          </div>
-
-          <select
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-600 uppercase outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-          >
-            <option value="">ALL TAGS</option>
-            {Array.from(new Set(rawBookmarks.flatMap((b) => b.tags || []))).map(
-              (tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              )
-            )}
-          </select>
-
-          <button
-            onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
-            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-600 uppercase transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
-            title="Toggle View Mode (Press V)"
-          >
-            {viewMode === "list" ? (
-              <LayoutGrid className="h-3 w-3 stroke-[2]" />
-            ) : (
-              <ListIcon className="h-3 w-3 stroke-[2]" />
-            )}
-            <span className="hidden sm:inline">VIEW (V)</span>
-          </button>
-        </div>
-      </div>
+      <BookmarkListHeader
+        openBookmarkModal={openBookmarkModal}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        folderName={folderName}
+        searchFields={searchFields}
+        toggleSearchField={toggleSearchField}
+        selectedTag={selectedTag}
+        setSelectedTag={setSelectedTag}
+        rawBookmarks={rawBookmarks}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+      />
 
       <div
         ref={parentRef}
@@ -269,112 +198,15 @@ export default function BookmarkList({ activeFolder }) {
       </div>
 
       {/* Bulk Operations Toolbar */}
-      <AnimatePresence>
-        {selectedBookmarks.size > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 p-2 text-white shadow-xl dark:bg-slate-800"
-          >
-            <div className="flex items-center gap-2 border-r border-slate-700 px-3 py-1 text-sm font-medium">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold">
-                {selectedBookmarks.size}
-              </span>
-              Selected
-            </div>
-
-            <div className="relative flex items-center gap-1 px-1">
-              <button
-                onClick={() => setShowMoveMenu(!showMoveMenu)}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition-colors hover:bg-slate-800 dark:hover:bg-slate-700"
-              >
-                <FolderOutput className="h-4 w-4" />
-                Move
-              </button>
-
-              <AnimatePresence>
-                {showMoveMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute bottom-full left-0 mb-2 w-48 origin-bottom-left rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <div className="no-scrollbar max-h-60 overflow-y-auto">
-                      <button
-                        onClick={() => {
-                          bulkMoveBookmarks.mutate(
-                            {
-                              ids: Array.from(selectedBookmarks),
-                              folderId: null,
-                            },
-                            {
-                              onSuccess: () => {
-                                clearBookmarkSelection();
-                                setShowMoveMenu(false);
-                              },
-                            }
-                          );
-                        }}
-                        className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        Inbox (No Folder)
-                      </button>
-
-                      {folders.map((folder) => (
-                        <button
-                          key={folder.id}
-                          onClick={() => {
-                            bulkMoveBookmarks.mutate(
-                              {
-                                ids: Array.from(selectedBookmarks),
-                                folderId: folder.id,
-                              },
-                              {
-                                onSuccess: () => {
-                                  clearBookmarkSelection();
-                                  setShowMoveMenu(false);
-                                },
-                              }
-                            );
-                          }}
-                          className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                        >
-                          {folder.name}
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <button
-                onClick={() => {
-                  bulkDeleteBookmarks.mutate(Array.from(selectedBookmarks), {
-                    onSuccess: () => clearBookmarkSelection(),
-                  });
-                }}
-                disabled={bulkDeleteBookmarks.isPending}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 disabled:opacity-50 dark:hover:bg-slate-700"
-              >
-                {bulkDeleteBookmarks.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                Delete
-              </button>
-            </div>
-            <button
-              onClick={() => clearBookmarkSelection()}
-              className="ml-1 rounded-full p-1.5 transition-colors hover:bg-slate-800 dark:hover:bg-slate-700"
-            >
-              <Plus className="h-4 w-4 rotate-45" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <BookmarkBulkActions
+        selectedBookmarks={selectedBookmarks}
+        showMoveMenu={showMoveMenu}
+        setShowMoveMenu={setShowMoveMenu}
+        bulkMoveBookmarks={bulkMoveBookmarks}
+        clearBookmarkSelection={clearBookmarkSelection}
+        folders={folders}
+        bulkDeleteBookmarks={bulkDeleteBookmarks}
+      />
 
       {bookmarkToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -414,234 +246,5 @@ export default function BookmarkList({ activeFolder }) {
         </div>
       )}
     </div>
-  );
-}
-
-function DraggableBookmark({
-  b,
-  selectedId,
-  onSelect,
-  virtualItem,
-  handleDelete,
-  isSelected,
-  toggleSelection,
-  handleToggleFavorite,
-  folders,
-  viewMode = "list",
-}) {
-  const [imageError, setImageError] = useState(false);
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: b.id,
-      data: { type: "bookmark" },
-    });
-
-  const getFolderBreadcrumb = () => {
-    if (!b.folderId || !folders || b.folderId === "root") return null;
-    const folder = folders.find((f) => f.id === b.folderId);
-    if (!folder) return null;
-    if (folder.parentId) {
-      const parent = folders.find((f) => f.id === folder.parentId);
-      return parent ? `${parent.name} / ${folder.name}` : folder.name;
-    }
-    return folder.name;
-  };
-
-  const breadcrumb = getFolderBreadcrumb();
-
-  const style = {
-    position: viewMode === "list" ? "absolute" : "relative",
-    top: viewMode === "list" && virtualItem ? `${virtualItem.start}px` : "auto",
-    left: 0,
-    width: "100%",
-    height:
-      viewMode === "list" && virtualItem ? `${virtualItem.size - 8}px` : "auto",
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    zIndex: isDragging ? 50 : 1,
-    opacity: isDragging ? 0.8 : 1,
-  };
-
-  return (
-    <motion.div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      layout
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      onClick={() => onSelect(b)}
-      style={style}
-      className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-xl transition-all duration-200",
-        viewMode === "grid"
-          ? "flex h-full w-full flex-col p-4 shadow-sm"
-          : "p-3",
-        selectedId === b.id
-          ? "border border-slate-200 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] dark:border-slate-800 dark:bg-slate-900"
-          : isSelected
-            ? "border-blue-200 bg-blue-50/50 dark:border-blue-800/50 dark:bg-blue-900/10"
-            : "border border-transparent bg-transparent hover:border-slate-200 hover:bg-white hover:shadow-sm dark:hover:border-slate-800 dark:hover:bg-slate-900"
-      )}
-    >
-      <div
-        className={cn(
-          "relative z-10",
-          viewMode === "grid"
-            ? "flex h-full flex-col gap-4"
-            : "flex h-full items-center justify-between gap-3"
-        )}
-      >
-        <div
-          className={cn(
-            "flex overflow-hidden",
-            viewMode === "grid"
-              ? "flex-col items-start gap-4"
-              : "h-full w-full items-center gap-3"
-          )}
-        >
-          <button
-            onClick={(e) => toggleSelection(e, b.id)}
-            className={cn(
-              "z-20 shrink-0 rounded-md transition-all",
-              isSelected
-                ? "text-blue-500 opacity-100"
-                : "text-slate-300 opacity-0 group-hover:opacity-100 hover:text-slate-400 dark:text-slate-600"
-            )}
-          >
-            {isSelected ? (
-              <CheckSquare className="h-5 w-5" />
-            ) : (
-              <Square className="h-5 w-5" />
-            )}
-          </button>
-
-          <div
-            className={cn(
-              "flex",
-              viewMode === "grid" ? "w-full items-center justify-between" : ""
-            )}
-          >
-            {b.logoURL && !imageError ? (
-              <img
-                src={b.logoURL}
-                alt=""
-                className={cn(
-                  "shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-1 dark:border-slate-700 dark:bg-slate-800",
-                  viewMode === "grid" ? "h-10 w-10" : "h-8 w-8"
-                )}
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div
-                className={cn(
-                  "flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50",
-                  viewMode === "grid" ? "h-10 w-10" : "h-8 w-8"
-                )}
-              >
-                <Globe className="h-4 w-4 stroke-[1.5] text-slate-300 dark:text-slate-600" />
-              </div>
-            )}
-
-            {viewMode === "grid" && (
-              <div className="flex items-center gap-1">
-                {breadcrumb && (
-                  <div className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 dark:bg-slate-800">
-                    <Folder className="h-3 w-3 shrink-0 stroke-[2] text-slate-400 dark:text-slate-500" />
-                    <span className="max-w-[80px] truncate text-[9px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
-                      {breadcrumb}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="w-full min-w-0 flex-1">
-            <p
-              className={cn(
-                "flex items-center gap-1 truncate text-sm font-medium transition-colors",
-                selectedId === b.id
-                  ? "text-slate-900 dark:text-white"
-                  : "text-slate-700 dark:text-slate-300"
-              )}
-            >
-              <span className="truncate">{b.title || "Untitled"}</span>
-              {b.isDeadLink && (
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
-              )}
-            </p>
-            <p className="mt-0.5 truncate text-[11px] font-light text-slate-500">
-              {b.bookmarkURL}
-            </p>
-            {viewMode === "grid" && b.description && (
-              <p className="mt-2 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">
-                {b.description}
-              </p>
-            )}
-            {viewMode === "list" && breadcrumb && (
-              <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-                <Folder className="h-3 w-3 shrink-0 stroke-[2] text-slate-400 dark:text-slate-500" />
-                <span className="truncate text-[10px] font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
-                  {breadcrumb}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "flex items-center gap-1",
-            viewMode === "grid"
-              ? "mt-auto justify-between border-t border-slate-100 pt-3 dark:border-slate-800"
-              : "shrink-0 opacity-0 transition-all group-hover:opacity-100"
-          )}
-        >
-          <a
-            href={b.bookmarkURL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800 dark:hover:text-blue-400"
-            title="Open Link"
-          >
-            <ExternalLink className="h-4 w-4 stroke-[1.5]" />
-          </a>
-          <button
-            onClick={(e) => handleToggleFavorite(e, b)}
-            className={cn(
-              "rounded-md p-1.5 transition-all hover:bg-slate-100 dark:hover:bg-slate-800",
-              b.isFavorite
-                ? "text-amber-500 opacity-100"
-                : "text-slate-400 hover:text-amber-500"
-            )}
-            title={b.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill={b.isFavorite ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => handleDelete(e, b.id)}
-            className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-          >
-            <Trash2 className="h-4 w-4 stroke-[1.5]" />
-          </button>
-        </div>
-      </div>
-    </motion.div>
   );
 }
