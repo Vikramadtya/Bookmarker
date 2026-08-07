@@ -1,22 +1,15 @@
 import React, { useState, useRef } from "react";
-import {
-  X,
-  Link2,
-  Sparkles,
-  Loader2,
-  Type,
-  Tags,
-  MessageSquare,
-  Plus,
-  Trash2,
-  Folder,
-} from "lucide-react";
+import { X, Link2, Sparkles, Loader2, Type } from "lucide-react";
 import * as z from "zod";
 import { useFolders } from "@/hooks/useFolders";
 import { useTags } from "@/hooks/useBookmarks";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
+
+import FolderSelect from "./fields/FolderSelect";
+import NotesInput from "./fields/NotesInput";
+import TagsInput from "./fields/TagsInput";
 
 const formSchema = z.object({
   bookmarkURL: z.preprocess(
@@ -45,7 +38,6 @@ const ModalForm = ({
   const isEdit = !!initialData;
   const { data: folders = [] } = useFolders();
   const { data: globalTags = [] } = useTags();
-  const tagsContainerRef = useRef(null);
 
   const subFolders = folders.filter((f) => f.parentId);
   const collections = folders.filter((f) => !f.parentId && f.name !== "Inbox");
@@ -76,7 +68,6 @@ const ModalForm = ({
     },
   });
 
-  const [newComment, setNewComment] = useState("");
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
 
   const currentComments = watch("comments") || [];
@@ -102,10 +93,6 @@ const ModalForm = ({
     }
   };
 
-  React.useEffect(() => {
-    // Intentionally left empty or remove
-  }, [errors]);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
       <div
@@ -120,6 +107,7 @@ const ModalForm = ({
             {isEdit ? "Edit Bookmark" : "Save Bookmark"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
@@ -168,65 +156,14 @@ const ModalForm = ({
             </div>
 
             {/* Folder Selection */}
-            <div>
-              <label
-                htmlFor="folderId"
-                className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                <Folder className="h-4 w-4 text-slate-400" /> Destination Folder{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="folderId"
-                className={cn(
-                  "w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-900 transition-all outline-none focus:bg-white focus:ring-4 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-900",
-                  errors.folderId
-                    ? "border-red-300 focus:border-red-500 focus:ring-red-500/20"
-                    : "border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 dark:border-slate-700"
-                )}
-                {...register("folderId")}
-                disabled={isSubmitting || (subFolders.length === 0 && !inbox)}
-              >
-                <option value="" disabled>
-                  Select a folder
-                </option>
-                {inbox && (
-                  <option
-                    value={inbox.id}
-                    className="font-semibold text-blue-600 dark:text-blue-400"
-                  >
-                    📥 {inbox.name}
-                  </option>
-                )}
-                {collections.map((collection) => (
-                  <optgroup key={collection.id} label={collection.name}>
-                    <option
-                      value={collection.id}
-                      className="text-slate-500 italic"
-                    >
-                      📁 {collection.name} (Root)
-                    </option>
-                    {subFolders
-                      .filter((f) => f.parentId === collection.id)
-                      .map((folder) => (
-                        <option key={folder.id} value={folder.id}>
-                          └ {folder.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                ))}
-              </select>
-              {errors.folderId && (
-                <p className="mt-1.5 text-[13px] text-red-500">
-                  {errors.folderId.message}
-                </p>
-              )}
-              {subFolders.length === 0 && !inbox && (
-                <p className="mt-2 text-[13px] font-medium text-red-500 dark:text-red-400">
-                  Please create a folder in the sidebar first.
-                </p>
-              )}
-            </div>
+            <FolderSelect
+              register={register}
+              errors={errors}
+              isSubmitting={isSubmitting}
+              inbox={inbox}
+              collections={collections}
+              subFolders={subFolders}
+            />
 
             {/* Title Input */}
             <div>
@@ -251,152 +188,22 @@ const ModalForm = ({
             </div>
 
             {/* Comments Input */}
-            <div>
-              <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
-                <MessageSquare className="h-4 w-4 text-slate-400" /> Notes{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  (Optional)
-                </span>
-              </label>
-
-              <div className="mb-3 space-y-3">
-                {currentComments.map((comment, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50"
-                  >
-                    <p className="flex-1 text-sm text-slate-700 dark:text-slate-300">
-                      {comment}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setValue(
-                          "comments",
-                          currentComments.filter((_, i) => i !== index)
-                        )
-                      }
-                      className="p-1 text-slate-400 transition-colors hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  placeholder="Add a new note..."
-                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-900 dark:focus:ring-blue-500/20"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (newComment.trim()) {
-                        setValue("comments", [
-                          ...currentComments,
-                          newComment.trim(),
-                        ]);
-                        setNewComment("");
-                      }
-                    }
-                  }}
-                  disabled={isSubmitting}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newComment.trim()) {
-                      setValue("comments", [
-                        ...currentComments,
-                        newComment.trim(),
-                      ]);
-                      setNewComment("");
-                    }
-                  }}
-                  disabled={!newComment.trim() || isSubmitting}
-                  className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+            <NotesInput
+              currentComments={currentComments}
+              setValue={setValue}
+              isSubmitting={isSubmitting}
+            />
 
             {/* Tags Input */}
-            <div>
-              <label
-                htmlFor="tags"
-                className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300"
-              >
-                <Tags className="h-4 w-4 text-slate-400" /> Tags{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  (Comma-separated)
-                </span>
-              </label>
-              <div className="relative" ref={tagsContainerRef}>
-                <input
-                  id="tags"
-                  placeholder="design, inspiration, tools"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 transition-all outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-900 dark:focus:ring-blue-500/20"
-                  {...register("tags")}
-                  onChange={(e) => {
-                    register("tags").onChange(e);
-                    setShowTagSuggestions(true);
-                  }}
-                  onFocus={() => setShowTagSuggestions(true)}
-                  disabled={isSubmitting}
-                />
-
-                {showTagSuggestions && globalTags.length > 0 && (
-                  <div className="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                    {(() => {
-                      const currentTagsArr = currentTags
-                        .split(",")
-                        .map((t) => t.trim());
-                      const lastTag =
-                        currentTagsArr[
-                          currentTagsArr.length - 1
-                        ]?.toLowerCase() || "";
-
-                      const suggestions = globalTags.filter(
-                        (t) =>
-                          t.toLowerCase().includes(lastTag) &&
-                          !currentTagsArr
-                            .slice(0, -1)
-                            .map((c) => c.toLowerCase())
-                            .includes(t.toLowerCase())
-                      );
-
-                      if (suggestions.length === 0)
-                        return (
-                          <div className="p-2 text-center text-xs text-slate-500">
-                            No matching tags
-                          </div>
-                        );
-
-                      return suggestions.map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            const newTags =
-                              [...currentTagsArr.slice(0, -1), tag].join(", ") +
-                              ", ";
-                            setValue("tags", newTags);
-                            setShowTagSuggestions(false);
-                            document.getElementById("tags").focus();
-                          }}
-                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                        >
-                          {tag}
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                )}
-              </div>
-            </div>
+            <TagsInput
+              register={register}
+              setValue={setValue}
+              isSubmitting={isSubmitting}
+              showTagSuggestions={showTagSuggestions}
+              setShowTagSuggestions={setShowTagSuggestions}
+              globalTags={globalTags}
+              currentTags={currentTags}
+            />
 
             {!isEdit && (
               <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">

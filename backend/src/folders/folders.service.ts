@@ -7,6 +7,8 @@ import {
 import { FoldersRepository } from './folders.repository';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { BookmarksService } from '../bookmarks/bookmarks.service';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class FoldersService {
@@ -88,6 +90,18 @@ export class FoldersService {
       dataToUpdate.slug = await this.generateUniqueSlug(userId, existing.name);
     }
 
+    if (updateFolderDto.password) {
+      const salt = await bcrypt.genSalt(10);
+      dataToUpdate.passwordHash = await bcrypt.hash(
+        updateFolderDto.password,
+        salt,
+      );
+      dataToUpdate.isLocked = true;
+      delete dataToUpdate.password;
+    } else if (updateFolderDto.isLocked === false) {
+      dataToUpdate.passwordHash = null;
+    }
+
     const updated = await this.foldersRepository.update(
       { _id: id, userId },
       dataToUpdate,
@@ -96,6 +110,32 @@ export class FoldersService {
       throw new NotFoundException(`Folder with id ${id} not found`);
     }
     return updated;
+  }
+
+  async verifyPassword(id: string, password?: string): Promise<boolean> {
+    const folder = await this.foldersRepository.findOne({ _id: id });
+    if (!folder) throw new NotFoundException('Folder not found');
+    if (!folder.isLocked) return true;
+    if (!password) return false;
+
+    return bcrypt.compare(password, folder.passwordHash);
+  }
+
+  generateUnlockToken(folderId: string, passwordHash: string): string {
+    const secret = process.env.JWT_SECRET || 'fallback_secret';
+    return crypto
+      .createHmac('sha256', secret)
+      .update(`${folderId}:${passwordHash}`)
+      .digest('hex');
+  }
+
+  verifyUnlockToken(
+    folderId: string,
+    passwordHash: string,
+    token: string,
+  ): boolean {
+    const expected = this.generateUnlockToken(folderId, passwordHash);
+    return expected === token;
   }
 
   async deleteFolder(

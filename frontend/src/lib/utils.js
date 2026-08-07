@@ -97,6 +97,37 @@ export async function makeApiRequest({
       meta,
     };
 
+    // Auto-attach folder token for locked collections
+    if (typeof window !== "undefined") {
+      try {
+        const tokens = JSON.parse(
+          sessionStorage.getItem("folder_tokens") || "{}"
+        );
+        let matchedFolderId = null;
+        if (url.includes("folderId=")) {
+          const match = url.match(/folderId=([0-9a-fA-F-]+)/);
+          if (match) matchedFolderId = match[1];
+        } else {
+          const parts = url.split("/");
+          const lastPart = parts[parts.length - 1];
+          // UUID match
+          if (/^[0-9a-fA-F-]{36}$/.test(lastPart)) {
+            matchedFolderId = lastPart;
+          }
+          // Shared link match /api/v1/shared/:username/:slug/bookmarks
+          else if (url.includes("/shared/") && url.endsWith("/bookmarks")) {
+            const slug = parts[parts.length - 2];
+            // we store the token using the slug for public links
+            matchedFolderId = slug;
+          }
+        }
+
+        if (matchedFolderId && tokens[matchedFolderId]) {
+          config.headers["x-folder-token"] = tokens[matchedFolderId];
+        }
+      } catch (e) {}
+    }
+
     const response = await apiClient.request(config);
     let data = response.data;
 

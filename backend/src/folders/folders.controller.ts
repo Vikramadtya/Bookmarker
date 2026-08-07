@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -88,6 +89,32 @@ export class FoldersController {
     @Body() updateFolderDto: UpdateFolderDto,
   ) {
     return this.foldersService.updateFolder(userId, id, updateFolderDto);
+  }
+
+  @Post(':id/unlock')
+  @ApiOperation({ summary: 'Unlock a password-protected folder' })
+  @ApiParam({ name: 'id', description: 'Folder UUID' })
+  @ApiBody({
+    schema: { type: 'object', properties: { password: { type: 'string' } } },
+  })
+  @ApiResponse({ status: 200, description: 'Unlock token returned' })
+  @ApiResponse({ status: 401, description: 'Invalid password' })
+  async unlockFolder(
+    @CurrentUser('email') userId: string,
+    @Param('id') id: string,
+    @Body('password') password?: string,
+  ) {
+    const folder = await this.foldersService.getFolderById(userId, id);
+    const isValid = await this.foldersService.verifyPassword(id, password);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid folder password');
+    }
+    return {
+      token: this.foldersService.generateUnlockToken(
+        folder._id,
+        folder.passwordHash,
+      ),
+    };
   }
 
   @Delete(':id')

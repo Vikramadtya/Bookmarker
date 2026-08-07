@@ -1,16 +1,12 @@
 import {
-  Folder,
   PanelLeft,
   Plus,
-  Trash2,
-  ChevronDown,
-  ChevronRight,
   Layers,
   LogOut,
   Settings,
-  Globe,
+  EyeOff,
+  Eye,
 } from "lucide-react";
-import { useDroppable } from "@dnd-kit/core";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAppStore } from "@/store/useAppStore";
@@ -21,10 +17,15 @@ import {
   useUpdateFolder,
 } from "@/hooks/useFolders";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { BASE_URL } from "@/lib/metadata";
+
+import DeleteFolderModal from "../modals/DeleteFolderModal";
+import PublicFolderModal from "../modals/PublicFolderModal";
+import UnlockFolderModal from "../modals/UnlockFolderModal";
+import FolderContextMenu from "./FolderContextMenu";
+import DroppableFolderItem from "./DroppableFolderItem";
+import CollectionItem from "./CollectionItem";
 
 export default function FolderSidebar() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,6 +55,11 @@ export default function FolderSidebar() {
 
   // UI State for expanding/collapsing collections
   const [expandedCollections, setExpandedCollections] = useState({});
+  const [showHidden, setShowHidden] = useState(false);
+  const [unlockFolderInfo, setUnlockFolderInfo] = useState(null);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlockError, setUnlockError] = useState("");
+  const [isUnlocking, setIsUnlocking] = useState(false);
 
   const toggleCollection = (id) => {
     setExpandedCollections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -78,7 +84,12 @@ export default function FolderSidebar() {
   };
 
   const inbox = folders.find((f) => !f.parentId && f.name === "Inbox");
-  const collections = folders.filter((f) => !f.parentId && f.name !== "Inbox");
+  const visibleCollections = folders.filter(
+    (f) => !f.parentId && f.name !== "Inbox" && !f.isHidden
+  );
+  const hiddenCollections = folders.filter(
+    (f) => !f.parentId && f.name !== "Inbox" && f.isHidden
+  );
   const getSubFolders = (collectionId) =>
     folders.filter((f) => f.parentId === collectionId);
 
@@ -228,7 +239,7 @@ export default function FolderSidebar() {
 
         {inbox && (
           <div className="mb-3">
-            <DroppableFolder
+            <DroppableFolderItem
               folder={inbox}
               isActive={activeFolder === inbox.id}
               compact={compact}
@@ -238,6 +249,7 @@ export default function FolderSidebar() {
               user={user}
               onContextMenu={handleContextMenu}
               onPublicIconClick={setPublicModalFolder}
+              onUnlockPrompt={setUnlockFolderInfo}
             />
           </div>
         )}
@@ -247,107 +259,65 @@ export default function FolderSidebar() {
             Loading collections...
           </div>
         ) : (
-          collections.map((collection) => (
-            <div key={collection.id} className="mb-2">
-              <div
-                className={cn(
-                  "group flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-all duration-200",
-                  activeFolder === collection.id
-                    ? "bg-slate-200/50 font-medium text-slate-900 dark:bg-slate-800/50 dark:text-slate-100"
-                    : "text-slate-600 hover:bg-slate-200/30 dark:text-slate-400 dark:hover:bg-slate-800/30"
-                )}
-                onClick={() => {
-                  toggleCollection(collection.id);
-                  const subFolderIds = getSubFolders(collection.id)
-                    .map((f) => f.id)
-                    .join(",");
-                  // Set active folder to collection id + children ids so the API fetches everything in the collection
-                  setActiveFolder(
-                    subFolderIds
-                      ? `${collection.id},${subFolderIds}`
-                      : collection.id
-                  );
-                }}
-                onContextMenu={(e) => handleContextMenu(e, collection)}
-              >
-                <div className="flex items-center gap-3 truncate">
-                  {expandedCollections[collection.id] ? (
-                    <ChevronDown className="h-4 w-4 shrink-0 stroke-[1.5] text-slate-400" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 stroke-[1.5] text-slate-400" />
-                  )}
-                  {!compact && (
-                    <span className="truncate tracking-wide">
-                      {collection.name}
-                    </span>
-                  )}
-                </div>
+          <>
+            {visibleCollections.map((collection) => (
+              <CollectionItem
+                key={collection.id}
+                collection={collection}
+                activeFolder={activeFolder}
+                setActiveFolder={setActiveFolder}
+                toggleCollection={toggleCollection}
+                getSubFolders={getSubFolders}
+                expandedCollections={expandedCollections}
+                setExpandedCollections={setExpandedCollections}
+                compact={compact}
+                setPublicModalFolder={setPublicModalFolder}
+                setShowInputFor={setShowInputFor}
+                showInputFor={showInputFor}
+                handleCreateFolder={handleCreateFolder}
+                newFolderName={newFolderName}
+                setNewFolderName={setNewFolderName}
+                createFolderPending={createFolder.isPending}
+                handleDeleteFolderClick={handleDeleteFolderClick}
+                user={user}
+                handleContextMenu={handleContextMenu}
+                setUnlockFolderInfo={setUnlockFolderInfo}
+              />
+            ))}
+            {showHidden && hiddenCollections.length > 0 && (
+              <>
                 {!compact && (
-                  <div className="flex items-center gap-1">
-                    {collection.isPublic && (
-                      <Globe
-                        className="mr-1 h-3.5 w-3.5 shrink-0 cursor-pointer text-blue-500 transition-colors hover:text-blue-600"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPublicModalFolder(collection);
-                        }}
-                        title="Public Collection"
-                      />
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowInputFor(collection.id);
-                        setExpandedCollections((prev) => ({
-                          ...prev,
-                          [collection.id]: true,
-                        }));
-                      }}
-                      className="hidden p-1 text-slate-400 transition-colors group-hover:block hover:text-blue-500"
-                      title="New Folder"
-                    >
-                      <Plus className="h-3.5 w-3.5 stroke-[1.5]" />
-                    </button>
+                  <div className="mt-6 mb-2 px-3 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                    Hidden Collections
                   </div>
                 )}
-              </div>
-
-              {expandedCollections[collection.id] && (
-                <div className="mt-0.5 ml-5 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-800">
-                  {!compact && showInputFor === collection.id && (
-                    <form
-                      onSubmit={(e) => handleCreateFolder(e, collection.id)}
-                      className="mb-1"
-                    >
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="Folder name..."
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:ring-2 focus:ring-blue-500/50 focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        onBlur={() => setShowInputFor(null)}
-                        disabled={createFolder.isPending}
-                      />
-                    </form>
-                  )}
-                  {getSubFolders(collection.id).map((sub) => (
-                    <DroppableFolder
-                      key={sub.id}
-                      folder={sub}
-                      isActive={activeFolder === sub.id}
-                      compact={compact}
-                      setActiveFolder={setActiveFolder}
-                      handleDeleteFolder={handleDeleteFolderClick}
-                      user={user}
-                      onContextMenu={handleContextMenu}
-                      onPublicIconClick={setPublicModalFolder}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))
+                {hiddenCollections.map((collection) => (
+                  <CollectionItem
+                    key={collection.id}
+                    collection={collection}
+                    activeFolder={activeFolder}
+                    setActiveFolder={setActiveFolder}
+                    toggleCollection={toggleCollection}
+                    getSubFolders={getSubFolders}
+                    expandedCollections={expandedCollections}
+                    setExpandedCollections={setExpandedCollections}
+                    compact={compact}
+                    setPublicModalFolder={setPublicModalFolder}
+                    setShowInputFor={setShowInputFor}
+                    showInputFor={showInputFor}
+                    handleCreateFolder={handleCreateFolder}
+                    newFolderName={newFolderName}
+                    setNewFolderName={setNewFolderName}
+                    createFolderPending={createFolder.isPending}
+                    handleDeleteFolderClick={handleDeleteFolderClick}
+                    user={user}
+                    handleContextMenu={handleContextMenu}
+                    setUnlockFolderInfo={setUnlockFolderInfo}
+                  />
+                ))}
+              </>
+            )}
+          </>
         )}
       </div>
 
@@ -385,6 +355,26 @@ export default function FolderSidebar() {
         ) : null}
 
         <button
+          onClick={() => setShowHidden(!showHidden)}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
+            compact && "justify-center px-0"
+          )}
+          title={
+            showHidden ? "Hide Hidden Collections" : "Show Hidden Collections"
+          }
+        >
+          {showHidden ? (
+            <EyeOff className="h-4 w-4 shrink-0 stroke-[1.5]" />
+          ) : (
+            <Eye className="h-4 w-4 shrink-0 stroke-[1.5]" />
+          )}
+          {!compact && (
+            <span>{showHidden ? "Hide Hidden" : "Show Hidden"}</span>
+          )}
+        </button>
+
+        <button
           onClick={() => setSettingsModalOpen(true)}
           className={cn(
             "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
@@ -410,267 +400,40 @@ export default function FolderSidebar() {
         </button>
       </div>
 
-      {folderToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Delete Folder
-            </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              You are about to delete <strong>{folderToDelete.name}</strong>.
-              What would you like to do with its bookmarks?
-            </p>
-            <div className="mt-6 space-y-3">
-              <button
-                onClick={() => confirmDelete("move_to_inbox")}
-                className="w-full rounded-lg bg-blue-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
-                disabled={deleteFolder.isPending}
-              >
-                Move to Inbox & Delete
-              </button>
-              <button
-                onClick={() => confirmDelete("delete_bookmarks")}
-                className="w-full rounded-lg bg-red-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600 focus:ring-2 focus:ring-red-500/50 focus:outline-none"
-                disabled={deleteFolder.isPending}
-              >
-                Delete Folder & Bookmarks
-              </button>
-              <button
-                onClick={() => setFolderToDelete(null)}
-                className="w-full rounded-lg bg-slate-200 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:ring-2 focus:ring-slate-500/50 focus:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                disabled={deleteFolder.isPending}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteFolderModal
+        folderToDelete={folderToDelete}
+        setFolderToDelete={setFolderToDelete}
+        confirmDelete={confirmDelete}
+        isPending={deleteFolder.isPending}
+      />
 
-      {contextMenu && (
-        <div
-          className="fixed inset-0 z-50"
-          onClick={() => setContextMenu(null)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setContextMenu(null);
-          }}
-        >
-          <div
-            className="absolute z-50 min-w-[160px] rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-900"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
-            <button
-              onClick={() => {
-                setPublicModalFolder(contextMenu.folder);
-                setContextMenu(null);
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-            >
-              <Globe className="h-4 w-4" />
-              {contextMenu.folder.isPublic ? "Public Settings" : "Make Public"}
-            </button>
+      <FolderContextMenu
+        contextMenu={contextMenu}
+        setContextMenu={setContextMenu}
+        setPublicModalFolder={setPublicModalFolder}
+        updateFolder={updateFolder}
+        handleDeleteFolderClick={handleDeleteFolderClick}
+      />
 
-            <button
-              onClick={() => handleDeleteFolderClick(contextMenu.folder.id)}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </button>
-          </div>
-        </div>
-      )}
+      <PublicFolderModal
+        publicModalFolder={publicModalFolder}
+        setPublicModalFolder={setPublicModalFolder}
+        updateFolder={updateFolder}
+        user={user}
+      />
 
-      {publicModalFolder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
-              <Globe className="h-5 w-5 text-blue-500" />
-              Public Collection
-            </h3>
-
-            {!publicModalFolder.isPublic ? (
-              <>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  Are you sure you want to make{" "}
-                  <strong>{publicModalFolder.name}</strong> public? Anyone with
-                  the link will be able to view it.
-                </p>
-                <div className="mt-6 space-y-3">
-                  <button
-                    onClick={() => {
-                      updateFolder.mutate(
-                        { id: publicModalFolder.id, data: { isPublic: true } },
-                        {
-                          onSuccess: (data) => {
-                            toast.success("Folder is now public!");
-                            setPublicModalFolder(data);
-                          },
-                        }
-                      );
-                    }}
-                    className="w-full rounded-lg bg-blue-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
-                    disabled={updateFolder.isPending}
-                  >
-                    {updateFolder.isPending ? "Updating..." : "Make Public"}
-                  </button>
-                  <button
-                    onClick={() => setPublicModalFolder(null)}
-                    className="w-full rounded-lg bg-slate-200 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:ring-2 focus:ring-slate-500/50 focus:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    disabled={updateFolder.isPending}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  This collection is public. Anyone with the link below can view
-                  it.
-                </p>
-
-                <div className="mt-4 flex flex-col gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={
-                      user?.username && publicModalFolder.slug
-                        ? `${window.location.origin}/public/${user.username}/${publicModalFolder.slug}`
-                        : ""
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                  />
-                  <button
-                    onClick={() => {
-                      if (user?.username && publicModalFolder.slug) {
-                        const url = `${window.location.origin}/public/${user.username}/${publicModalFolder.slug}`;
-                        navigator.clipboard.writeText(url);
-                        toast.success("Copied to clipboard!");
-                      }
-                    }}
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                  >
-                    Copy Link
-                  </button>
-                </div>
-
-                <div className="mt-6 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800">
-                  <button
-                    onClick={() => {
-                      updateFolder.mutate(
-                        { id: publicModalFolder.id, data: { isPublic: false } },
-                        {
-                          onSuccess: (data) => {
-                            toast.success("Folder is now private.");
-                            setPublicModalFolder(null);
-                          },
-                        }
-                      );
-                    }}
-                    className="w-full rounded-lg bg-red-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600 focus:ring-2 focus:ring-red-500/50 focus:outline-none"
-                    disabled={updateFolder.isPending}
-                  >
-                    {updateFolder.isPending ? "Updating..." : "Make Private"}
-                  </button>
-                  <button
-                    onClick={() => setPublicModalFolder(null)}
-                    className="w-full rounded-lg bg-slate-200 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:ring-2 focus:ring-slate-500/50 focus:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    disabled={updateFolder.isPending}
-                  >
-                    Close
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <UnlockFolderModal
+        unlockFolderInfo={unlockFolderInfo}
+        setUnlockFolderInfo={setUnlockFolderInfo}
+        unlockPassword={unlockPassword}
+        setUnlockPassword={setUnlockPassword}
+        unlockError={unlockError}
+        setUnlockError={setUnlockError}
+        isUnlocking={isUnlocking}
+        setIsUnlocking={setIsUnlocking}
+        activeFolder={activeFolder}
+        setActiveFolder={setActiveFolder}
+      />
     </aside>
-  );
-}
-
-function DroppableFolder({
-  folder,
-  isActive,
-  compact,
-  setActiveFolder,
-  handleDeleteFolder,
-  isTopLevel = false,
-  user,
-  onContextMenu,
-  onPublicIconClick,
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: folder.id,
-    data: { type: "folder" },
-  });
-  const updateFolder = useUpdateFolder();
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "group flex cursor-pointer items-center justify-between rounded-lg px-3 transition-all duration-200",
-        isTopLevel ? "py-2" : "py-1.5",
-        isActive
-          ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-          : "text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/50",
-        isOver
-          ? "bg-blue-100/80 ring-1 ring-blue-500/50 dark:bg-blue-900/40"
-          : ""
-      )}
-      onClick={() => setActiveFolder(folder.id)}
-      onContextMenu={(e) => onContextMenu?.(e, folder)}
-    >
-      <div
-        className={cn(
-          "flex items-center truncate",
-          isTopLevel ? "gap-3" : "gap-2"
-        )}
-      >
-        {isTopLevel && folder.name !== "Inbox" ? (
-          <Layers
-            className={cn(
-              "h-4 w-4 shrink-0 stroke-[1.5] transition-colors",
-              isActive
-                ? "text-blue-500"
-                : "text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300"
-            )}
-          />
-        ) : (
-          <Folder
-            className={cn(
-              "shrink-0 stroke-[1.5] transition-colors",
-              isTopLevel ? "h-4 w-4" : "h-3.5 w-3.5",
-              isActive
-                ? "text-blue-500"
-                : "text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300"
-            )}
-          />
-        )}
-        {!compact && (
-          <span
-            className={cn(
-              "truncate tracking-wide",
-              isTopLevel ? "" : "text-xs"
-            )}
-          >
-            {folder.name}
-          </span>
-        )}
-      </div>
-      {!compact && folder.isPublic && folder.name !== "Inbox" && (
-        <Globe
-          className="mr-1 h-3.5 w-3.5 shrink-0 cursor-pointer text-blue-500 transition-colors hover:text-blue-600"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPublicIconClick?.(folder);
-          }}
-          title="Public Folder"
-        />
-      )}
-    </div>
   );
 }

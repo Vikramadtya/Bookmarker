@@ -11,4 +11,16 @@ export class CreateFolderDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isHidden?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isLocked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
 }
