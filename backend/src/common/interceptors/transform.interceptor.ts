@@ -35,10 +35,12 @@ export class TransformInterceptor<T> implements NestInterceptor<
   T,
   ApiResponse<T>
 > {
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<ApiResponse<T>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest();
+    if (request.url === '/health') {
+      return next.handle();
+    }
+
     return next.handle().pipe(
       map((data) => {
         // Already enveloped (e.g. paginated endpoints)

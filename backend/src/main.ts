@@ -80,6 +80,10 @@ async function bootstrap() {
   const port = parseInt(configService.get<string>('PORT', '8080'), 10);
   console.log(`Attempting to bind to port ${port} on 0.0.0.0...`);
 
+  const agenda = app.get('AGENDA');
+  await agenda.start();
+  console.log('Agenda queue started');
+
   await app.listen(port, '0.0.0.0');
   console.log(`Server successfully started and listening on port ${port}`);
 }

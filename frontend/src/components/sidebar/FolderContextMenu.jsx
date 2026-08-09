@@ -36,6 +36,44 @@ export default function FolderContextMenu({
 
         <button
           onClick={() => {
+            const newName = window.prompt(
+              "Enter new name:",
+              contextMenu.folder.name
+            );
+            if (
+              newName &&
+              newName.trim() &&
+              newName.trim() !== contextMenu.folder.name
+            ) {
+              updateFolder.mutate({
+                id: contextMenu.folder.id,
+                data: { name: newName.trim() },
+              });
+            }
+            setContextMenu(null);
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
+          >
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+          Rename
+        </button>
+
+        <button
+          onClick={() => {
             updateFolder.mutate({
               id: contextMenu.folder.id,
               data: { isHidden: !contextMenu.folder.isHidden },
