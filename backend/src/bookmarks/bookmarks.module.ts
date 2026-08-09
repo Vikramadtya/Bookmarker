@@ -1,11 +1,10 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { BullModule } from '@nestjs/bullmq';
 import { BookmarksController } from './bookmarks.controller';
 import { BookmarksService } from './bookmarks.service';
 import { BookmarksRepository } from './bookmarks.repository';
 import { Bookmark, BookmarkSchema } from './schemas/bookmark.schema';
-import { ScrapeProcessor } from './scrape.processor';
+import { ScrapeService } from './scrape.service';
 import { DeadLinkService } from './dead-link.service';
 import { FoldersModule } from '../folders/folders.module';
 
@@ -15,15 +14,12 @@ import { FoldersModule } from '../folders/folders.module';
     MongooseModule.forFeature([
       { name: Bookmark.name, schema: BookmarkSchema },
     ]),
-    BullModule.registerQueue({
-      name: 'scrape',
-    }),
   ],
   controllers: [BookmarksController],
   providers: [
     BookmarksService,
     BookmarksRepository,
-    ScrapeProcessor,
+    ScrapeService,
     DeadLinkService,
   ],
   exports: [BookmarksService],

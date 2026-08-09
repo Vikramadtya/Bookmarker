@@ -1,6 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import sanitizeHtml from 'sanitize-html';
 import { BookmarksRepository } from './bookmarks.repository';
@@ -8,28 +6,40 @@ import { EventsGateway } from '../events/events.gateway';
 import puppeteer from 'puppeteer';
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
+import { Agenda, Job } from 'agenda';
 
-@Processor('scrape', { concurrency: 3 })
-export class ScrapeProcessor extends WorkerHost {
-  private readonly logger = new Logger(ScrapeProcessor.name);
+@Injectable()
+export class ScrapeService implements OnModuleInit {
+  private readonly logger = new Logger(ScrapeService.name);
 
   constructor(
     private readonly bookmarksRepository: BookmarksRepository,
     private readonly eventsGateway: EventsGateway,
-  ) {
-    super();
+    @Inject('AGENDA') private agenda: Agenda,
+  ) {}
+
+  onModuleInit() {
+    this.agenda.define(
+      'scrape-metadata',
+      async (job: Job<{ bookmarkId: string; url: string; userId: string }>) => {
+        await this.process(job.attrs.data);
+      },
+    );
   }
 
-  async process(
-    job: Job<{ bookmarkId: string; url: string; userId: string }>,
-  ): Promise<void> {
-    const { bookmarkId, url, userId } = job.data;
-
+  private async process({
+    bookmarkId,
+    url,
+    userId,
+  }: {
+    bookmarkId: string;
+    url: string;
+    userId: string;
+  }): Promise<void> {
     try {
       const metadata = await this.extractMetadata(url);
       const { title, description, logoURL, content, isArticle } = metadata;
 
-      // ✅ Fixed: was `update(bookmarkId, ...)` which takes a filterQuery — must use updateById
       const updated = await this.bookmarksRepository.updateById(bookmarkId, {
         title: title || 'Untitled',
         description,
@@ -40,7 +50,7 @@ export class ScrapeProcessor extends WorkerHost {
 
       if (updated) {
         this.logger.log(
-          `[Job ${job.id}] Scraped metadata for bookmark ${bookmarkId}: "${title}"`,
+          `Scraped metadata for bookmark ${bookmarkId}: "${title}"`,
         );
         this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
           title: updated.title,
@@ -50,51 +60,38 @@ export class ScrapeProcessor extends WorkerHost {
       }
     } catch (error) {
       this.logger.error(
-        `[Job ${job.id}] Scrape job failed for ${url} (Attempt ${job.attemptsMade} of ${job.opts.attempts})`,
+        `Scrape job failed for ${url}`,
         error instanceof Error ? error.stack : undefined,
       );
 
-      // If this is the final attempt, update the database so it's not stuck on "Scraping..."
-      if (job.attemptsMade >= (job.opts.attempts || 1)) {
-        const existingBookmark =
-          await this.bookmarksRepository.findById(bookmarkId);
-        let fallbackTitle = existingBookmark?.title;
+      const existingBookmark =
+        await this.bookmarksRepository.findById(bookmarkId);
+      let fallbackTitle = existingBookmark?.title;
 
-        // Only fallback to the hostname if the title wasn't manually set by the user
-        if (!fallbackTitle || fallbackTitle === url) {
-          try {
-            fallbackTitle = new URL(url).hostname;
-          } catch {
-            fallbackTitle = 'Unknown Site';
-          }
+      if (!fallbackTitle || fallbackTitle === url) {
+        try {
+          fallbackTitle = new URL(url).hostname;
+        } catch {
+          fallbackTitle = 'Unknown Site';
         }
-
-        await this.bookmarksRepository.updateById(bookmarkId, {
-          title: fallbackTitle,
-          description: 'Failed to extract metadata',
-        });
-
-        this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
-          title: fallbackTitle,
-          description: 'Failed to extract metadata',
-          error: 'Failed to extract metadata',
-        });
-      } else {
-        // Just emit the error for the frontend without updating DB, so it knows it failed this attempt
-        this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
-          error: 'Failed to extract metadata',
-        });
       }
-      // Rethrow to let BullMQ handle the failure (retries, dead letter queue)
-      throw error;
+
+      await this.bookmarksRepository.updateById(bookmarkId, {
+        title: fallbackTitle,
+        description: 'Failed to extract metadata',
+      });
+
+      this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
+        title: fallbackTitle,
+        description: 'Failed to extract metadata',
+        error: 'Failed to extract metadata',
+      });
     }
   }
 
   // ─── Metadata Extraction ──────────────────────────────────────────────────
 
-  private async extractMetadata(
-    url: string,
-  ): Promise<{
+  private async extractMetadata(url: string): Promise<{
     title: string;
     description: string;
     logoURL: string;
@@ -113,7 +110,19 @@ export class ScrapeProcessor extends WorkerHost {
     }
 
     // Slow path: Puppeteer for JS-rendered pages
-    return this.scrapeWithPuppeteer(url);
+    try {
+      return await this.scrapeWithPuppeteer(url);
+    } catch (error) {
+      this.logger.error(`Puppeteer failed for ${url}: ${error.message}`);
+      // Ultimate fallback if both fetch and Puppeteer fail
+      return {
+        title: '',
+        description: '',
+        logoURL: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+        content: '',
+        isArticle: false,
+      };
+    }
   }
 
   private parseHtml(
@@ -138,7 +147,7 @@ export class ScrapeProcessor extends WorkerHost {
       $('link[rel="apple-touch-icon"]').attr('href') ||
       $('link[rel="icon"]').attr('href') ||
       $('link[rel="shortcut icon"]').attr('href') ||
-      '';
+      `https://www.google.com/s2/favicons?domain=${new URL(baseUrl).hostname}&sz=128`;
 
     logoURL = this.resolveUrl(logoURL, baseUrl);
 
@@ -173,9 +182,7 @@ export class ScrapeProcessor extends WorkerHost {
     };
   }
 
-  private async scrapeWithPuppeteer(
-    url: string,
-  ): Promise<{
+  private async scrapeWithPuppeteer(url: string): Promise<{
     title: string;
     description: string;
     logoURL: string;
@@ -192,13 +199,13 @@ export class ScrapeProcessor extends WorkerHost {
       const html = await page.content();
       return this.parseHtml(html, url);
     } finally {
-      // ✅ Always close the browser — even if page.goto() throws
       await browser.close();
     }
   }
 
   private resolveUrl(logoURL: string, baseUrl: string): string {
-    if (!logoURL || logoURL.startsWith('http')) return logoURL;
+    if (!logoURL || logoURL.startsWith('http') || logoURL.startsWith('data:'))
+      return logoURL;
     try {
       return new URL(logoURL, new URL(baseUrl).origin).toString();
     } catch {

@@ -2,8 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { BookmarksRepository } from './bookmarks.repository';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
 import { UpdateBookmarkDto } from './dto/update-bookmark.dto';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import { Inject } from '@nestjs/common';
+import { Agenda } from 'agenda';
 
 // Allowed searchable fields — prevents arbitrary field injection
 const SEARCHABLE_FIELDS = new Set([
@@ -20,7 +20,7 @@ const FIELD_ALIAS: Record<string, string> = { notes: 'comments' };
 export class BookmarksService {
   constructor(
     private readonly bookmarksRepository: BookmarksRepository,
-    @InjectQueue('scrape') private scrapeQueue: Queue,
+    @Inject('AGENDA') private agenda: Agenda,
   ) {}
 
   async createBookmark(userId: string, createBookmarkDto: CreateBookmarkDto) {
@@ -36,21 +36,11 @@ export class BookmarksService {
     });
 
     if (needsScraping) {
-      await this.scrapeQueue.add(
-        'scrape-metadata',
-        {
-          bookmarkId: bookmark._id.toString(),
-          url: bookmarkURL,
-          userId,
-        },
-        {
-          attempts: 2,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
-          },
-        },
-      );
+      await this.agenda.now('scrape-metadata', {
+        bookmarkId: bookmark._id.toString(),
+        url: bookmarkURL,
+        userId,
+      });
     }
 
     return bookmark;

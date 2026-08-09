@@ -5,7 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { BullModule } from '@nestjs/bullmq';
+import { AgendaModule } from './common/agenda.module';
 import { EventsModule } from './events/events.module';
 import { FoldersModule } from './folders/folders.module';
 import { BookmarksModule } from './bookmarks/bookmarks.module';
@@ -35,40 +35,8 @@ import { UsersModule } from './users/users.module';
       }),
     }),
 
-    // ── Queue (BullMQ / Redis) ───────────────────────────────────────────────
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const redisUrl = config.get<string>('REDIS_URL');
-        let connectionConfig: any = {
-          host: config.get<string>('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
-        };
-
-        const password = config.get<string>('REDIS_PASSWORD');
-        if (password) {
-          connectionConfig.password = password;
-          connectionConfig.tls = {};
-        }
-
-        if (redisUrl) {
-          const parsed = new URL(redisUrl);
-          connectionConfig = {
-            host: parsed.hostname,
-            port:
-              parseInt(parsed.port, 10) ||
-              (parsed.protocol === 'rediss:' ? 6380 : 6379),
-            password: parsed.password || undefined,
-          };
-          if (parsed.protocol === 'rediss:') {
-            connectionConfig.tls = {};
-          }
-        }
-
-        return { connection: connectionConfig };
-      },
-    }),
-
+    // ── Agenda (MongoDB Job Queue) ───────────────────────────────────────────
+    AgendaModule,
     // ── Structured Logging (pino) ────────────────────────────────────────────
     LoggerModule.forRootAsync({
       inject: [ConfigService],
@@ -101,9 +69,20 @@ import { UsersModule } from './users/users.module';
       },
     }),
 
-    // ── Caching ──────────────────────────────────────────────────────────────
-    CacheModule.register({ isGlobal: true }),
+    // ── Caching (Redis) ──────────────────────────────────────────────────────
+    CacheModule.registerAsync({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: async (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        if (!redisUrl) return {};
 
+        const { createKeyv } = await import('@keyv/redis');
+        return {
+          stores: [createKeyv(redisUrl)],
+        };
+      },
+    }),
     // ── Rate Limiting ────────────────────────────────────────────────────────
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
 
