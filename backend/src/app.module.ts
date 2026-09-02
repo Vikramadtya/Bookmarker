@@ -5,15 +5,16 @@ import { LoggerModule } from 'nestjs-pino';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { AgendaModule } from './common/agenda.module';
-import { EventsModule } from './events/events.module';
-import { FoldersModule } from './folders/folders.module';
-import { BookmarksModule } from './bookmarks/bookmarks.module';
-import { AuthModule } from './auth/auth.module';
-import { SettingsModule } from './settings/settings.module';
-import { HealthModule } from './health/health.module';
+import { AgendaModule } from '@core/common/agenda.module';
+import { EventsModule } from '@content/events/events.module';
+import { FoldersModule } from '@workspace/folders/folders.module';
+import { BookmarksModule } from '@content/bookmarks/bookmarks.module';
+import { AuthModule } from '@identity/auth/auth.module';
+import { SettingsModule } from '@identity/settings/settings.module';
+import { HealthModule } from '@core/health/health.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { UsersModule } from './users/users.module';
+import { UsersModule } from '@identity/users/users.module';
+import { SharedModule } from '@workspace/shared/shared.module';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     SettingsModule,
     UsersModule,
+    SharedModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

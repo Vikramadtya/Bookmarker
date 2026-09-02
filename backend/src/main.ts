@@ -12,8 +12,8 @@ import helmet from '@fastify/helmet';
 import compression from '@fastify/compress';
 import cookie from '@fastify/cookie';
 import { Logger } from 'nestjs-pino';
-import { AllExceptionsFilter } from './common/filters/http-exception.filter';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { AllExceptionsFilter } from '@core/common/filters/http-exception.filter';
+import { TransformInterceptor } from '@core/common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const fastifyAdapter = new FastifyAdapter();
@@ -37,7 +37,9 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
 
   await app.register(helmet as any);
-  await app.register(compression as any);
+  // Compress responses larger than 1KB. Without a threshold, small responses
+  // may not be compressed, missing easy bandwidth savings.
+  await app.register(compression as any, { threshold: 1024 });
   await app.register(cookie as any);
 
   const configService = app.get(ConfigService);
