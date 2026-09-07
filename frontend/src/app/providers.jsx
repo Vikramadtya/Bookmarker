@@ -25,11 +25,17 @@ export default function Providers({ children }) {
 
     const wakeTimeoutId = setTimeout(() => {
       isWaking = true;
-      toast.loading(
-        "Waiting for backend server to start. Give it a min to start...",
+      toast.custom(
+        (t) => (
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[#334155] px-4 py-2 text-sm font-medium text-white shadow-lg">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+            Waiting for backend server to start. Give it a min to start...
+          </div>
+        ),
         {
           id: toastId,
           duration: Infinity, // Remains visible until dismissed
+          position: "top-center",
         }
       );
     }, 1000); // Show if it takes longer than 1s
@@ -40,10 +46,32 @@ export default function Providers({ children }) {
           if (!res.ok) throw new Error("Not ready");
           clearTimeout(wakeTimeoutId);
           if (isWaking) {
-            toast.success("Backend server is ready!", {
-              id: toastId,
-              duration: 3000,
-            });
+            toast.custom(
+              (t) => (
+                <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[#334155] px-4 py-2 text-sm font-medium text-white shadow-lg">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3 w-3 text-white"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                  Backend server is ready!
+                </div>
+              ),
+              {
+                id: toastId,
+                duration: 3000,
+                position: "top-center",
+              }
+            );
           }
         })
         .catch(() => {
