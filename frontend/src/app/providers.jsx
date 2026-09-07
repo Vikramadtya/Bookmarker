@@ -20,17 +20,39 @@ export default function Providers({ children }) {
 
   useEffect(() => {
     // 1. Wake up server on load (helpful for Render free-tier instances)
-    let wakeTimeoutId = setTimeout(() => {
-      toast.loading("Waking up server (can take up to 50s on free tier)...", {
-        id: "server-wakeup",
-        duration: 60000,
-      });
-    }, 1500);
+    let isWaking = false;
+    const toastId = "server-wakeup";
 
-    fetch(`${BACKEND_URL}/health`)
-      .then(() => toast.dismiss("server-wakeup"))
-      .catch(() => toast.dismiss("server-wakeup"))
-      .finally(() => clearTimeout(wakeTimeoutId));
+    const wakeTimeoutId = setTimeout(() => {
+      isWaking = true;
+      toast.loading(
+        "Waiting for backend server to start. Give it a min to start...",
+        {
+          id: toastId,
+          duration: Infinity, // Remains visible until dismissed
+        }
+      );
+    }, 1000); // Show if it takes longer than 1s
+
+    const pingServer = () => {
+      fetch(`${BACKEND_URL}/health`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Not ready");
+          clearTimeout(wakeTimeoutId);
+          if (isWaking) {
+            toast.success("Backend server is ready!", {
+              id: toastId,
+              duration: 3000,
+            });
+          }
+        })
+        .catch(() => {
+          // Keep polling every 3 seconds if fetch fails (e.g., connection reset while Render wakes)
+          setTimeout(pingServer, 3000);
+        });
+    };
+
+    pingServer();
 
     // 2. Setup WebSocket connection
     // Get base domain from BASE_URL (assuming BASE_URL is http://localhost:8080/api/v1)
