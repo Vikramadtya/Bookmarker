@@ -6,6 +6,7 @@ import {
   Param,
   NotFoundException,
   UnauthorizedException,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Public } from '@core/common/decorators/public.decorator';
@@ -35,7 +36,8 @@ export class SharedController {
       user.email,
       slug,
     );
-    return folder;
+    const { passwordHash, userId, ...safeFolder } = folder;
+    return safeFolder;
   }
 
   @Post(':username/:slug/unlock')
@@ -72,6 +74,7 @@ export class SharedController {
   async getPublicFolderBookmarks(
     @Param('username') username: string,
     @Param('slug') slug: string,
+    @Headers('x-folder-token') folderToken?: string,
   ) {
     const user = await this.usersService.findByUsername(username);
     if (!user) throw new NotFoundException('User not found');
@@ -80,6 +83,20 @@ export class SharedController {
       user.email,
       slug,
     );
+
+    if (folder.isLocked) {
+      const isValid =
+        folderToken &&
+        this.foldersService.verifyUnlockToken(
+          folder.id,
+          folder.passwordHash as string,
+          folderToken,
+        );
+      if (!isValid)
+        throw new UnauthorizedException(
+          'Folder is locked. Provide a valid x-folder-token header.',
+        );
+    }
 
     return this.bookmarksService.getBookmarks(
       user.email,

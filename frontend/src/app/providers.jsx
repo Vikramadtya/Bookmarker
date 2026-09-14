@@ -94,6 +94,7 @@ export default function Providers({ children }) {
       // Skip HTTP long-polling handshake and connect directly via WebSocket.
       // This eliminates the extra HTTP round-trip that happens by default.
       transports: ["websocket"],
+      auth: { token: localStorage.getItem("bookmarker_token") },
       // Retry up to 5 times with 2s delay before giving up silently.
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
@@ -105,6 +106,7 @@ export default function Providers({ children }) {
 
     const handleUnauthorized = () => {
       localStorage.removeItem("bookmarker_token");
+      queryClient.clear();
       queryClient.setQueryData(["auth-status"], null);
     };
     window.addEventListener("unauthorized", handleUnauthorized);

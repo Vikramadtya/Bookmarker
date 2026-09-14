@@ -46,12 +46,26 @@ export class FoldersService {
       parentId: null,
     });
     if (!inbox) {
-      inbox = await this.foldersRepository.create({
-        userId,
-        name: 'Inbox',
-        slug: 'inbox',
-        parentId: null,
-      });
+      try {
+        const slug = await this.generateUniqueSlug(userId, 'Inbox');
+        inbox = await this.foldersRepository.create({
+          userId,
+          name: 'Inbox',
+          slug,
+          parentId: null,
+        });
+      } catch (err: any) {
+        // Handle E11000 duplicate key error in case of parallel requests
+        if (err.code === 11000) {
+          inbox = await this.foldersRepository.findOne({
+            userId,
+            name: 'Inbox',
+            parentId: null,
+          });
+        } else {
+          throw err;
+        }
+      }
     }
     return inbox;
   }

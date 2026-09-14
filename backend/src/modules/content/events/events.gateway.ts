@@ -34,15 +34,34 @@ export class EventsGateway
   }
 
   async handleConnection(client: Socket) {
-    // Client must send userId in handshake auth: socket({ auth: { userId } })
-    const userId = client.handshake.auth?.userId as string;
-    if (userId) {
-      await client.join(userId);
-      this.logger.log(`Client connected: ${client.id} → room: ${userId}`);
-    } else {
+    const token = client.handshake.auth?.token as string;
+    if (!token) {
       this.logger.warn(
-        `Client connected without userId — no room assigned: ${client.id}`,
+        `Client connected without token — disconnecting: ${client.id}`,
       );
+      client.disconnect();
+      return;
+    }
+
+    try {
+      const jwt = require('jsonwebtoken');
+      const secret = this.config.get<string>('JWT_SECRET');
+      if (!secret) throw new Error('JWT_SECRET not configured');
+
+      const payload = jwt.verify(token, secret) as any;
+      const userId = payload.email; // userId is actually email in this app's controllers
+
+      if (userId) {
+        await client.join(userId);
+        this.logger.log(`Client connected: ${client.id} → room: ${userId}`);
+      } else {
+        throw new Error('No email in token payload');
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `WebSocket auth failed for ${client.id}: ${err.message}`,
+      );
+      client.disconnect();
     }
   }
 
