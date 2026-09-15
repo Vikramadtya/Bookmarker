@@ -29,7 +29,7 @@ export class EventsGateway
 
   constructor(private readonly config: ConfigService) {}
 
-  afterInit(_server: Server) {
+  afterInit() {
     this.logger.log('WebSocket Gateway Initialized');
   }
 
@@ -48,7 +48,7 @@ export class EventsGateway
       const secret = this.config.get<string>('JWT_SECRET');
       if (!secret) throw new Error('JWT_SECRET not configured');
 
-      const payload = jwt.verify(token, secret) as any;
+      const payload = jwt.verify(token, secret);
       const userId = payload.email; // userId is actually email in this app's controllers
 
       if (userId) {

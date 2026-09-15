@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
   Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { Public } from '@core/common/decorators/public.decorator';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
 import { BookmarksService } from '@content/bookmarks/application/services/bookmarks.service';
@@ -36,7 +36,11 @@ export class SharedController {
       user.email,
       slug,
     );
-    const { passwordHash, userId, ...safeFolder } = folder;
+    const {
+      passwordHash: _passwordHash,
+      userId: _userId,
+      ...safeFolder
+    } = folder;
     return safeFolder;
   }
 
