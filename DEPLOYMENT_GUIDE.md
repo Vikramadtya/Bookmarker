@@ -174,3 +174,42 @@ The free M0 cluster has **512MB storage**. At ~2KB per bookmark, that's ~250,000
 - The JWT cookie is `httpOnly` and `sameSite: lax` — not readable by JavaScript.
 - All search queries are regex-escaped to prevent ReDoS attacks.
 - WebSocket events are scoped to per-user rooms — no data leaks between users.
+
+---
+
+## 🔭 Phase 5: Free Observability (Tracing, Metrics, Logging)
+
+Bookmarker is fully instrumented with OpenTelemetry on both the Frontend and Backend to give you a complete, end-to-end view of your application's performance and behavior.
+
+When a user clicks a button on the UI, a Trace ID is generated, propagated through the API request to the backend, attached to the structured logs (Pino), and sent to your observability backend. This guarantees you will have enough logs and traces to completely debug any issue end-to-end.
+
+### Features
+
+- **Distributed Tracing (End-to-End):** Traces originate on the frontend (`user-interaction`, `document-load`, `fetch`) and carry through to the backend automatically.
+- **Performance Metrics:** Automatic tracking of CPU, memory, and HTTP response times.
+- **Structured Logging:** NestJS-Pino automatically injects `trace_id` and `span_id` into every log.
+- **Fail-Safe:** If observability environment variables are omitted, the app simply uses a `NoopTracer` and continues running normally without crashing.
+
+### Free Setup (SigNoz or Grafana Cloud)
+
+To keep this 100% free, you can use either a self-hosted instance of [SigNoz](https://signoz.io) (open source) or the free tier of [Grafana Cloud](https://grafana.com) or [New Relic](https://newrelic.com).
+
+To enable observability, set the following environment variables:
+
+#### Backend Environment Variables (Render)
+
+| Variable                      | Value                              | Description                                                          |
+| ----------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `ENABLE_OBSERVABILITY`        | `true`                             | Turns on the OpenTelemetry SDK                                       |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://ingest.your-provider.com` | The OTLP HTTP endpoint (e.g., SigNoz or Grafana Cloud OTLP endpoint) |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | `Authorization=Bearer <token>`     | (Optional) Required if using Grafana/New Relic Cloud                 |
+
+#### Frontend Environment Variables (Vercel)
+
+| Variable                           | Value                              | Description                                                             |
+| ---------------------------------- | ---------------------------------- | ----------------------------------------------------------------------- |
+| `VITE_ENABLE_OBSERVABILITY`        | `true`                             | Turns on the OpenTelemetry Web SDK                                      |
+| `VITE_OTEL_EXPORTER_OTLP_ENDPOINT` | `https://ingest.your-provider.com` | The OTLP HTTP endpoint that accepts frontend traces (must support CORS) |
+
+> [!TIP]
+> **Debugging Logs**: Because `nestjs-pino` automatically injects `trace_id` into your logs, you can easily correlate a slow UI click to the exact backend log line and database query simply by copying the trace ID from your frontend networking tab!

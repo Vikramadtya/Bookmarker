@@ -49,6 +49,7 @@ import { SharedModule } from '@workspace/shared/shared.module';
         );
         const logHttp =
           config.get<string>('LOG_HTTP_REQUESTS', 'false') === 'true';
+        const opentelemetryApi = require('@opentelemetry/api');
 
         return {
           pinoHttp: {
@@ -59,6 +60,18 @@ import { SharedModule } from '@workspace/shared/shared.module';
                   target: 'pino-pretty',
                   options: { singleLine: true, colorize: true },
                 },
+            // Automatically inject trace IDs into structured logs
+            mixin() {
+              const span = opentelemetryApi.trace.getSpan(
+                opentelemetryApi.context.active(),
+              );
+              if (!span) return {};
+              const spanContext = span.spanContext();
+              return {
+                trace_id: spanContext.traceId,
+                span_id: spanContext.spanId,
+              };
+            },
             customLogLevel: (req, res, err) => {
               if (req.url === '/health' || !logHttp) return 'silent';
               if (res.statusCode >= 500 || err) return 'error';
