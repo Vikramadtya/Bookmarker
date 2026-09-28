@@ -46,6 +46,12 @@ export default function NotesInput({
           className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-900 dark:focus:ring-blue-500/20"
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
+          onBlur={() => {
+            if (newComment.trim()) {
+              setValue("comments", [...currentComments, newComment.trim()]);
+              setNewComment("");
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

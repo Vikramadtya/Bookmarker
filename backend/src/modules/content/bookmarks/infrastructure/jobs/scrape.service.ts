@@ -41,13 +41,30 @@ export class ScrapeService implements OnModuleInit {
     userId: string;
   }): Promise<void> {
     try {
+      const existing = await this.bookmarksRepository.findOne({
+        _id: bookmarkId,
+      });
+      if (!existing) {
+        this.logger.warn(`Bookmark ${bookmarkId} not found during scrape.`);
+        return;
+      }
+
       const metadata = await this.extractMetadata(url);
       const { title, description, logoURL, content, isArticle } = metadata;
 
+      // Only overwrite title/description if they are the default placeholder values
+      const newTitle =
+        existing.title === 'Scraping...' ? title || 'Untitled' : existing.title;
+      const newDesc =
+        existing.description === 'Extracting metadata...'
+          ? description
+          : existing.description;
+      const newLogo = existing.logoURL || logoURL;
+
       const updated = await this.bookmarksRepository.updateById(bookmarkId, {
-        title: title || 'Untitled',
-        description,
-        logoURL,
+        title: newTitle,
+        description: newDesc,
+        logoURL: newLogo,
         content: content || '',
         isArticle: isArticle || false,
       });
@@ -58,15 +75,20 @@ export class ScrapeService implements OnModuleInit {
         );
         this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
           title: updated.title,
-          description,
-          logoURL,
+          description: updated.description,
+          logoURL: updated.logoURL,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Scrape job failed for ${url}`,
         error instanceof Error ? error.stack : undefined,
       );
+
+      const existing = await this.bookmarksRepository.findOne({
+        _id: bookmarkId,
+      });
+      if (!existing) return;
 
       // Derive a readable fallback title from the URL without an extra DB round-trip.
       let fallbackTitle: string;
@@ -76,16 +98,21 @@ export class ScrapeService implements OnModuleInit {
         fallbackTitle = 'Unknown Site';
       }
 
+      const finalTitle =
+        existing.title === 'Scraping...' ? fallbackTitle : existing.title;
+      const finalDesc =
+        existing.description === 'Extracting metadata...'
+          ? 'Could not extract metadata — check the URL is accessible.'
+          : existing.description;
+
       await this.bookmarksRepository.updateById(bookmarkId, {
-        title: fallbackTitle,
-        description:
-          'Could not extract metadata — check the URL is accessible.',
+        title: finalTitle,
+        description: finalDesc,
       });
 
       this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
-        title: fallbackTitle,
-        description:
-          'Could not extract metadata — check the URL is accessible.',
+        title: finalTitle,
+        description: finalDesc,
         error: 'scrape_failed',
       });
     }
