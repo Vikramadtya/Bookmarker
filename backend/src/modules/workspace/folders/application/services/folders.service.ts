@@ -174,8 +174,14 @@ export class FoldersService {
 
   // ─── Password / Token Helpers ─────────────────────────────────────────────
 
-  async verifyPassword(id: string, password?: string): Promise<boolean> {
-    const folder = await this.foldersRepository.findOne({ _id: id });
+  async verifyPassword(
+    idOrFolder: string | any,
+    password?: string,
+  ): Promise<boolean> {
+    const folder =
+      typeof idOrFolder === 'string'
+        ? await this.foldersRepository.findOne({ _id: idOrFolder })
+        : idOrFolder;
     if (!folder) throw new NotFoundException('Folder not found');
     if (!folder.isLocked) return true;
     if (!password) return false;
@@ -194,7 +200,9 @@ export class FoldersService {
     passwordHash: string,
     token: string,
   ): boolean {
-    return this.generateUnlockToken(folderId, passwordHash) === token;
+    const expected = this.generateUnlockToken(folderId, passwordHash);
+    if (expected.length !== token.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token));
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────

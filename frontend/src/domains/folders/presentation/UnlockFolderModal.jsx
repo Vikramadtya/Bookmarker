@@ -36,7 +36,7 @@ export default function UnlockFolderModal({
             setUnlockError("");
             try {
               const data = await makeApiRequest({
-                url: `/api/v1/folders/${unlockFolderInfo.id}/unlock`,
+                url: `${BASE_URL}/folders/${unlockFolderInfo.id}/unlock`,
                 method: "POST",
                 body: { password: unlockPassword },
               });

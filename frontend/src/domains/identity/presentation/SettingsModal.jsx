@@ -33,9 +33,11 @@ export default function SettingsModal() {
   if (!isSettingsModalOpen) return null;
 
   // Set initial username when user loads
-  if (userDetails?.username && newUsername === "" && !isEditingUsername) {
-    setNewUsername(userDetails.username);
-  }
+  useEffect(() => {
+    if (userDetails?.username && newUsername === "" && !isEditingUsername) {
+      setNewUsername(userDetails.username);
+    }
+  }, [userDetails?.username, isEditingUsername, newUsername]);
 
   const handleImportClick = () => {
     fileInputRef.current?.click();

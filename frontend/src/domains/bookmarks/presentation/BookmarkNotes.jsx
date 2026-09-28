@@ -38,13 +38,17 @@ export default function BookmarkNotes({
           e.preventDefault();
           if (!newNote.trim()) return;
 
-          const updatedComments = [
-            ...(bookmark.comments || []),
-            newNote.trim(),
-          ];
+          const currentComments = bookmark.comments || [];
+          const updatedComments = [...currentComments, newNote.trim()];
 
-          // Optimistically update local view
-          setSelectedBookmark({ ...bookmark, comments: updatedComments });
+          setSelectedBookmark((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  comments: [...(prev.comments || []), newNote.trim()],
+                }
+              : prev
+          );
 
           updateBookmark.mutate(
             {

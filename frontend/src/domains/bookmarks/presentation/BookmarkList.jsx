@@ -42,6 +42,9 @@ export default function BookmarkList({ activeFolder }) {
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   const [selectedTag, setSelectedTag] = useState("");
+  useEffect(() => {
+    setSelectedTag("");
+  }, [activeFolder]);
 
   useHotkeys("v", () => setViewMode(viewMode === "list" ? "grid" : "list"), [
     viewMode,

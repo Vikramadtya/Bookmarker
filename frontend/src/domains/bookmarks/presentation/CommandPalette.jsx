@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Command } from "cmdk";
-import { Search, Folder, Bookmark } from "lucide-react";
+import { Search, Folder, Bookmark, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useFolders } from "@/domains/folders/application/useFolders";

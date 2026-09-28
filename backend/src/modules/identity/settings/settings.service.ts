@@ -21,15 +21,9 @@ export class SettingsService {
       await this.bookmarksService.bulkDelete(userId, bookmarkIds);
     }
 
-    for (const folder of folders) {
-      try {
-        await this.foldersService.deleteFolder(userId, folder.id);
-      } catch (e) {
-        this.logger.warn(
-          `Failed to delete folder ${folder.id}: ${(e as Error).message}`,
-        );
-      }
-    }
+    await Promise.allSettled(
+      folders.map((f) => this.foldersService.deleteFolder(userId, f.id)),
+    );
   }
 
   async exportToHtml(userId: string): Promise<string> {

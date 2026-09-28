@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 
 export class CreateBookmarkDto {
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   bookmarkURL: string;
 
   @IsOptional()
@@ -20,7 +20,7 @@ export class CreateBookmarkDto {
   author?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   logoURL?: string;
 
   @IsOptional()

@@ -9,11 +9,22 @@ import {
 import ModalForm from "@/domains/bookmarks/presentation/modalForm/ModalForm";
 import MoveBookmarkModal from "./MoveBookmarkModal";
 
+import { useEffect } from "react";
 export default function BookmarksView() {
   const [searchParams] = useSearchParams();
   const activeFolder = searchParams.get("folder") || "root";
 
-  const { bookmarkFormModal, closeBookmarkModal } = useAppStore();
+  const {
+    bookmarkFormModal,
+    closeBookmarkModal,
+    setSelectedBookmark,
+    clearBookmarkSelection,
+  } = useAppStore();
+
+  useEffect(() => {
+    setSelectedBookmark(null);
+    clearBookmarkSelection();
+  }, [activeFolder, setSelectedBookmark, clearBookmarkSelection]);
 
   const createBookmark = useCreateBookmark();
   const updateBookmark = useUpdateBookmark();

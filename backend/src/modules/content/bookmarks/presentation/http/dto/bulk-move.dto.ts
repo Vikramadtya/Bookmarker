@@ -3,6 +3,7 @@ import {
   ArrayNotEmpty,
   ArrayMaxSize,
   IsString,
+  IsUUID,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -19,6 +20,6 @@ export class BulkMoveDto {
   ids: string[];
 
   @ApiProperty({ description: 'Target folder ID' })
-  @IsString()
+  @IsUUID()
   folderId: string;
 }

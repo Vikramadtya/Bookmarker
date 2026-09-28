@@ -39,7 +39,9 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
                   className="flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
                 >
                   <span className="truncate">
-                    {new URL(bookmark.bookmarkURL).hostname}
+                    {bookmark.bookmarkURL && URL.canParse(bookmark.bookmarkURL)
+                      ? new URL(bookmark.bookmarkURL).hostname
+                      : ""}
                   </span>
                   <ExternalLink className="h-3 w-3" />
                 </a>

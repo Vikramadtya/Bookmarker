@@ -63,6 +63,7 @@ export function useUpdateFolder() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
     },
   });
 }

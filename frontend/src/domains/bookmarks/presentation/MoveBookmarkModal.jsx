@@ -14,7 +14,7 @@ export default function MoveBookmarkModal() {
   const handleMove = (targetFolderId) => {
     updateBookmark.mutate(
       {
-        id: moveBookmarkModal.bookmark.id,
+        id: moveBookmarkModal.bookmark?.id,
         data: { folderId: targetFolderId === "root" ? null : targetFolderId },
       },
       {

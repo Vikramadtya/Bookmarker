@@ -74,7 +74,7 @@ export class BookmarksController {
     @Query('q') q?: string,
     @Query('fields') fields?: string,
   ) {
-    await this.assertFolderAccess(folderId, folderToken);
+    await this.assertFolderAccess(userId, folderId, folderToken);
     return this.bookmarksService.getBookmarks(userId, folderId, q, fields);
   }
 
@@ -131,6 +131,13 @@ export class BookmarksController {
     @CurrentUser('email') userId: string,
     @Body() body: BulkMoveDto,
   ) {
+    if (
+      body.folderId &&
+      body.folderId !== 'root' &&
+      body.folderId !== 'favorites'
+    ) {
+      await this.foldersService.getFolderById(userId, body.folderId);
+    }
     await this.bookmarksService.bulkMove(userId, body.ids, body.folderId);
   }
 
@@ -185,6 +192,7 @@ export class BookmarksController {
    * missing or invalid.
    */
   private async assertFolderAccess(
+    userId: string,
     folderId?: string,
     folderToken?: string,
   ): Promise<void> {
@@ -193,10 +201,16 @@ export class BookmarksController {
     const isUUIDList = /^[0-9a-fA-F-]{36}(,[0-9a-fA-F-]{36})*$/.test(folderId);
     if (!isUUIDList) return;
 
-    const ids = folderId.split(',');
+    const ids = folderId.split(',').slice(0, 50); // BUG-12 Max cap
     for (const id of ids) {
       const folder = await this.foldersService.getFolderByIdUnscoped(id);
-      if (!folder?.isLocked) continue;
+      if (!folder) continue;
+      // BUG-03: IDOR fix - folder must belong to user or be public/unlocked (but shared routes don't use this controller)
+      // Actually, if a user is trying to access a folder, it MUST belong to them for this endpoint since it returns scoped bookmarks anyway.
+      // But we shouldn't let them probe lock status of other's folders.
+      if (folder.userId !== userId)
+        throw new UnauthorizedException('Folder not found or access denied');
+      if (!folder.isLocked) continue;
 
       const tokenValid =
         folderToken &&
