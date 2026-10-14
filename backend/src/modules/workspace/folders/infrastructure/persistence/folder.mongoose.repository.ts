@@ -36,7 +36,7 @@ export class FoldersMongooseRepository implements IFolderRepository {
     data: Partial<Folder>,
   ): Promise<Folder | null> {
     const updated = await this.model
-      .findOneAndUpdate(filter, data, { new: true })
+      .findOneAndUpdate(filter, { $set: data }, { new: true })
       .lean({ virtuals: true })
       .exec();
     if (!updated) return null;
@@ -45,7 +45,7 @@ export class FoldersMongooseRepository implements IFolderRepository {
 
   async updateById(id: string, data: Partial<Folder>): Promise<Folder | null> {
     const updated = await this.model
-      .findByIdAndUpdate(id, data, { new: true })
+      .findByIdAndUpdate(id, { $set: data }, { new: true })
       .lean({ virtuals: true })
       .exec();
     if (!updated) return null;
