@@ -43,19 +43,19 @@ export function CommandPalette() {
     setOpen(false);
   };
 
-  if (!open) return null;
-
   const query = searchQuery.toLowerCase().trim();
 
   const filteredFolders = useMemo(() => {
+    if (!open) return [];
     return folders.filter((folder) => {
       if (searchFolder !== "all") return false;
       if (!query) return true;
       return folder.name.toLowerCase().includes(query);
     });
-  }, [folders, searchFolder, query]);
+  }, [open, folders, searchFolder, query]);
 
   const filteredBookmarks = useMemo(() => {
+    if (!open) return [];
     return bookmarks.filter((bookmark) => {
       if (searchFolder !== "all" && bookmark.folderId !== searchFolder)
         return false;
@@ -86,7 +86,9 @@ export function CommandPalette() {
 
       return false;
     });
-  }, [bookmarks, searchFolder, query, searchFields]);
+  }, [open, bookmarks, searchFolder, query, searchFields]);
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh] sm:px-0">
