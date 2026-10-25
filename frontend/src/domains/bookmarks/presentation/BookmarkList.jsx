@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useHotkeys } from "react-hotkeys-hook";
 import {
@@ -96,7 +96,13 @@ export default function BookmarkList({ activeFolder }) {
   const confirmDelete = () => {
     if (!bookmarkToDelete) return;
     deleteBookmark.mutate(bookmarkToDelete.id, {
-      onSuccess: () => setBookmarkToDelete(null),
+      onSuccess: () => {
+        setBookmarkToDelete(null);
+        // Clear the detail panel if the deleted bookmark was selected
+        if (selectedBookmark?.id === bookmarkToDelete.id) {
+          setSelectedBookmark(null);
+        }
+      },
       onError: () => setBookmarkToDelete(null),
     });
   };

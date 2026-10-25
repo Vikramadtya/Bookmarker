@@ -20,7 +20,6 @@ export default function BookmarksView() {
     setSelectedBookmark,
     clearBookmarkSelection,
   } = useAppStore();
-
   useEffect(() => {
     setSelectedBookmark(null);
     clearBookmarkSelection();
@@ -37,7 +36,11 @@ export default function BookmarksView() {
           data,
         },
         {
-          onSuccess: () => closeBookmarkModal(),
+          onSuccess: (updated) => {
+            closeBookmarkModal();
+            // Keep detail panel in sync with the updated data
+            if (updated) setSelectedBookmark(updated);
+          },
         }
       );
     } else {
@@ -58,6 +61,7 @@ export default function BookmarksView() {
 
       {bookmarkFormModal.isOpen && (
         <ModalForm
+          key={bookmarkFormModal.data?.id || "create"}
           onClose={closeBookmarkModal}
           onSubmit={handleFormSubmit}
           initialData={bookmarkFormModal.data}
