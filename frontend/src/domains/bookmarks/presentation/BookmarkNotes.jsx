@@ -1,12 +1,23 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { MessageSquare, Loader2, Plus } from "lucide-react";
+import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
 
-export default function BookmarkNotes({
-  bookmark,
-  setSelectedBookmark,
-  updateBookmark,
-}) {
+export default function BookmarkNotes({ bookmark }) {
   const [newNote, setNewNote] = useState("");
+  const updateBookmark = useUpdateBookmark();
+
+  const addNote = (e) => {
+    e.preventDefault();
+    const note = newNote.trim();
+    if (!note) return;
+    updateBookmark.mutate(
+      {
+        id: bookmark.id,
+        data: { comments: [...(bookmark.comments || []), note] },
+      },
+      { onSuccess: () => setNewNote("") }
+    );
+  };
 
   return (
     <div className="mb-6 space-y-3">
@@ -32,39 +43,12 @@ export default function BookmarkNotes({
         </div>
       )}
 
-      <form
-        className="relative flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!newNote.trim()) return;
-
-          const currentComments = bookmark.comments || [];
-          const updatedComments = [...currentComments, newNote.trim()];
-
-          setSelectedBookmark((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  comments: [...(prev.comments || []), newNote.trim()],
-                }
-              : prev
-          );
-
-          updateBookmark.mutate(
-            {
-              id: bookmark.id,
-              data: { comments: updatedComments },
-            },
-            {
-              onSuccess: () => setNewNote(""),
-            }
-          );
-        }}
-      >
+      <form className="relative flex gap-2" onSubmit={addNote}>
         <input
           type="text"
           placeholder="Add a new note..."
           value={newNote}
+          maxLength={5000}
           onChange={(e) => setNewNote(e.target.value)}
           disabled={updateBookmark.isPending}
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500/20"

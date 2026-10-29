@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { makeApiRequest } from "@/lib/utils";
+import { makeApiRequest } from "@/lib/api";
 import { BASE_URL } from "@/lib/metadata";
 import { toast } from "sonner";
 
@@ -10,7 +10,6 @@ export function useFolders() {
       makeApiRequest({
         url: `${BASE_URL}/folders`,
         method: "GET",
-        name: "Fetch Folders",
       }),
   });
 }
@@ -22,7 +21,6 @@ export function useCreateFolder() {
       makeApiRequest({
         url: `${BASE_URL}/folders`,
         method: "POST",
-        name: "Create Folder",
         body: { name, parentId },
       }),
     onSuccess: () => {
@@ -41,7 +39,6 @@ export function useDeleteFolder() {
       return makeApiRequest({
         url: `${BASE_URL}/folders/${id}${query}`,
         method: "DELETE",
-        name: "Delete Folder",
       });
     },
     onSuccess: () => {
@@ -58,7 +55,6 @@ export function useUpdateFolder() {
       makeApiRequest({
         url: `${BASE_URL}/folders/${id}`,
         method: "PUT",
-        name: "Update Folder",
         body: data,
       }),
     onSuccess: () => {

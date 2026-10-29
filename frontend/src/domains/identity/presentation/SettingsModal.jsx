@@ -14,7 +14,8 @@ import DataTab from "@/domains/identity/presentation/DataTab";
 import DangerTab from "@/domains/identity/presentation/DangerTab";
 
 export default function SettingsModal() {
-  const { isSettingsModalOpen, setSettingsModalOpen } = useAppStore();
+  const isSettingsModalOpen = useAppStore((s) => s.isSettingsModalOpen);
+  const setSettingsModalOpen = useAppStore((s) => s.setSettingsModalOpen);
   const [activeTab, setActiveTab] = useState("account");
 
   const { data: userDetails, isLoading: isUserLoading } = useAuth();

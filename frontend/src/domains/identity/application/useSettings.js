@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { makeApiRequest } from "@/lib/utils";
+import { makeApiRequest } from "@/lib/api";
 import { BASE_URL } from "@/lib/metadata";
 import { toast } from "sonner";
 

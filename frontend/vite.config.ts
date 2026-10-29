@@ -7,21 +7,18 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Matches whole package directories, so "react" does not also catch "react-hook-form".
+const inPackages = (id: string, packages: string[]) =>
+  packages.some((name) => id.includes(`/node_modules/${name}/`));
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      devOptions: {
-        enabled: true,
-      },
-      // Only precache small static assets (HTML, CSS, SW registration).
-      // Do NOT precache JS bundles — they are large and change on every deploy,
-      // which would trigger a 900KB+ download for every user on every update.
-      workbox: {
-        globPatterns: ["**/*.{html,css}"],
-      },
+      // Precache only HTML/CSS: JS bundles are hashed and change on every deploy.
+      workbox: { globPatterns: ["**/*.{html,css}"] },
       manifest: {
         name: "Bookmarker",
         short_name: "Bookmarker",
@@ -40,42 +37,43 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       output: {
-        // Split large vendor libraries into separate cached chunks.
-        // Users re-download only what changed — not the entire 912KB bundle.
-        manualChunks(id) {
+        // Stable vendor chunks stay cached across deploys of app code.
+        manualChunks(id: string) {
           if (
-            id.includes("node_modules/react") ||
-            id.includes("node_modules/react-dom") ||
-            id.includes("react-router-dom")
+            inPackages(id, [
+              "react",
+              "react-dom",
+              "react-router",
+              "react-router-dom",
+              "scheduler",
+            ])
           ) {
             return "react-vendor";
           }
-          if (id.includes("@tanstack")) {
+          if (
+            inPackages(id, [
+              "@tanstack/react-query",
+              "@tanstack/query-core",
+              "@tanstack/react-virtual",
+            ])
+          ) {
             return "query-vendor";
           }
+          if (inPackages(id, ["framer-motion", "motion-dom", "motion-utils"]))
+            return "motion-vendor";
           if (
-            id.includes("framer-motion") ||
-            id.includes("lucide-react") ||
-            id.includes("sonner")
+            inPackages(id, [
+              "@dnd-kit/core",
+              "@dnd-kit/utilities",
+              "@dnd-kit/accessibility",
+            ])
           ) {
-            return "ui-vendor";
-          }
-          if (id.includes("@dnd-kit")) {
             return "dnd-vendor";
-          }
-          if (id.includes("cmdk")) {
-            return "editor-vendor";
           }
         },
       },
     },
   },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  server: {
-    port: 5173,
-  },
+  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  server: { port: 5173 },
 });

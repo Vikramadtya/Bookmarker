@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, FileText } from "lucide-react";
 import DOMPurify from "dompurify";
 
@@ -7,14 +7,14 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm sm:p-6"
         onClick={onClose}
       >
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -66,8 +66,8 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
               />
             </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </AnimatePresence>
   );
 }

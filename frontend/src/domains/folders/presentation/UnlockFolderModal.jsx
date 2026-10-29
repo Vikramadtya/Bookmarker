@@ -1,7 +1,9 @@
 import React from "react";
 import { Lock } from "lucide-react";
 import { toast } from "sonner";
-import { makeApiRequest } from "@/lib/utils";
+import { makeApiRequest } from "@/lib/api";
+import { BASE_URL } from "@/lib/metadata";
+import { setFolderToken } from "@/lib/folderTokens";
 
 export default function UnlockFolderModal({
   unlockFolderInfo,
@@ -40,11 +42,7 @@ export default function UnlockFolderModal({
                 method: "POST",
                 body: { password: unlockPassword },
               });
-              const tokens = JSON.parse(
-                sessionStorage.getItem("folder_tokens") || "{}"
-              );
-              tokens[unlockFolderInfo.id] = data.token;
-              sessionStorage.setItem("folder_tokens", JSON.stringify(tokens));
+              setFolderToken(unlockFolderInfo.id, data.token);
 
               // Refetch active folder if we are already viewing it to load the bookmarks
               if (activeFolder.includes(unlockFolderInfo.id)) {
@@ -55,7 +53,9 @@ export default function UnlockFolderModal({
               setUnlockFolderInfo(null);
               setUnlockPassword("");
             } catch (error) {
-              setUnlockError(error.message || "Invalid password");
+              setUnlockError(
+                error.response?.data?.message || "Invalid password"
+              );
             } finally {
               setIsUnlocking(false);
             }

@@ -3,6 +3,8 @@ export const BACKEND_URL =
 export const BASE_URL = import.meta.env.VITE_API_URL || `${BACKEND_URL}/api/v1`;
 export const AUTH_URL =
   import.meta.env.VITE_AUTH_URL || BASE_URL.replace("/api/v1", "/auth");
+// Origin of the API server; also where the WebSocket connects.
+export const SERVER_ORIGIN = new URL(BASE_URL).origin;
 
 export const SITE_METADATA = {
   appName: "Bookmarker",

@@ -14,7 +14,7 @@ import {
   useDeleteFolder,
   useUpdateFolder,
 } from "@/domains/folders/application/useFolders";
-import { useAuth } from "@/domains/identity/application/useAuth";
+import { useAuth, useLogout } from "@/domains/identity/application/useAuth";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/shared/ui/ThemeToggle";
 import { useFolderNavigation } from "@/domains/folders/application/useFolderNavigation";
@@ -28,11 +28,9 @@ import DroppableFolderItem from "./DroppableFolderItem";
 import CollectionItem from "./CollectionItem";
 
 export default function FolderSidebar() {
-  const {
-    isSidebarCompact: compact,
-    toggleSidebar,
-    setSettingsModalOpen,
-  } = useAppStore();
+  const compact = useAppStore((s) => s.isSidebarCompact);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const setSettingsModalOpen = useAppStore((s) => s.setSettingsModalOpen);
 
   // Navigation — active folder + expand/collapse per collection
   const {
@@ -63,6 +61,7 @@ export default function FolderSidebar() {
   });
 
   const { data: user } = useAuth();
+  const logout = useLogout();
   const [profileImageError, setProfileImageError] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [unlockFolderInfo, setUnlockFolderInfo] = useState(null);
@@ -74,12 +73,12 @@ export default function FolderSidebar() {
   const [publicModalFolder, setPublicModalFolder] = useState(null);
 
   // ── Derived data ────────────────────────────────────────────────────────────
-  const inbox = folders.find((f) => !f.parentId && f.name === "Inbox");
+  const inbox = folders.find((f) => f.isInbox);
   const visibleCollections = folders.filter(
-    (f) => !f.parentId && f.name !== "Inbox" && !f.isHidden
+    (f) => !f.parentId && !f.isInbox && !f.isHidden
   );
   const hiddenCollections = folders.filter(
-    (f) => !f.parentId && f.name !== "Inbox" && f.isHidden
+    (f) => !f.parentId && !f.isInbox && f.isHidden
   );
   const getSubFolders = (collectionId) =>
     folders.filter((f) => f.parentId === collectionId);
@@ -88,7 +87,7 @@ export default function FolderSidebar() {
   const handleContextMenu = (e, folder) => {
     e.preventDefault();
     e.stopPropagation();
-    if (folder.name === "Inbox") return; // Inbox can't be modified
+    if (folder.isInbox) return; // Inbox can't be modified
     setContextMenu({ x: e.clientX, y: e.clientY, folder });
   };
 
@@ -368,9 +367,7 @@ export default function FolderSidebar() {
           {!compact && <span>Settings</span>}
         </button>
         <button
-          onClick={() => {
-            window.dispatchEvent(new Event("unauthorized"));
-          }}
+          onClick={() => logout.mutate()}
           className={cn(
             "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
             compact && "justify-center px-0"

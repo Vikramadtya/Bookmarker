@@ -40,8 +40,8 @@ const ModalForm = ({
   const { data: globalTags = [] } = useTags();
 
   const subFolders = folders.filter((f) => f.parentId);
-  const collections = folders.filter((f) => !f.parentId && f.name !== "Inbox");
-  const inbox = folders.find((f) => !f.parentId && f.name === "Inbox");
+  const collections = folders.filter((f) => !f.parentId && !f.isInbox);
+  const inbox = folders.find((f) => f.isInbox);
 
   const parsedActiveId = activeFolderId ? activeFolderId.split(",")[0] : null;
   const defaultFolderId = initialData?.folderId
@@ -91,9 +91,20 @@ const ModalForm = ({
         : [];
       await onSubmit({
         bookmarkURL: data.bookmarkURL,
-        title: data.title?.trim() || undefined,
-        comments: data.comments?.length > 0 ? data.comments : undefined,
-        tags: parsedTags.length > 0 ? parsedTags : undefined,
+        // On edit an empty value must be sent so tags/notes/title can be cleared.
+        title: isEdit
+          ? (data.title ?? "").trim()
+          : data.title?.trim() || undefined,
+        comments: isEdit
+          ? (data.comments ?? [])
+          : data.comments?.length > 0
+            ? data.comments
+            : undefined,
+        tags: isEdit
+          ? parsedTags
+          : parsedTags.length > 0
+            ? parsedTags
+            : undefined,
         folderId: data.folderId,
       });
     } catch (err) {
@@ -147,12 +158,7 @@ const ModalForm = ({
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500/20"
                       : "border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 dark:border-slate-700"
                   )}
-                  value={watch("bookmarkURL") || ""}
-                  onChange={(e) =>
-                    setValue("bookmarkURL", e.target.value, {
-                      shouldValidate: true,
-                    })
-                  }
+                  {...register("bookmarkURL")}
                   disabled={isSubmitting}
                 />
               </div>
