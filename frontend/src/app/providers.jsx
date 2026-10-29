@@ -8,7 +8,7 @@ import { io } from "socket.io-client";
 import { domAnimation, LazyMotion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { ThemeProvider } from "next-themes";
-import { BACKEND_URL, SERVER_ORIGIN } from "@/lib/metadata";
+import { SERVER_ORIGIN } from "@/lib/metadata";
 import { endSession, useAuth } from "@/domains/identity/application/useAuth";
 import { patchBookmark } from "@/domains/bookmarks/application/bookmarkCache";
 
@@ -43,7 +43,7 @@ function useServerWakeup() {
 
     const ping = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/health`);
+        const res = await fetch(`${SERVER_ORIGIN}/health`);
         if (!res.ok) throw new Error("Not ready");
         clearTimeout(slowTimer);
         if (showing) {
