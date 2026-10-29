@@ -6,23 +6,22 @@ To deploy Bookmarker for $0 upfront with a professional CI/CD pipeline, we will 
 
 ## 🏗️ Architecture (The Free Stack)
 
-| Service        | Technology   | Cloud Provider | Free Tier Limits                                                                   |
-| -------------- | ------------ | -------------- | ---------------------------------------------------------------------------------- |
-| Frontend       | React + Vite | Vercel         | 100GB Bandwidth, automatic CI/CD on push.                                          |
-| Backend        | NestJS       | Render         | Free Web Service. (Spins down after 15 mins of inactivity; takes ~30s to wake up). |
-| Database       | MongoDB      | MongoDB Atlas  | M0 Cluster: 512MB storage, shared RAM.                                             |
-| Queue (BullMQ) | Redis        | Upstash        | Free serverless Redis, up to 10,000 requests/day.                                  |
-| CI/CD          | Automation   | GitHub Actions | 2,000 free action minutes per month (free forever for public repos).               |
+| Service  | Technology   | Cloud Provider | Free Tier Limits                                                                   |
+| -------- | ------------ | -------------- | ---------------------------------------------------------------------------------- |
+| Frontend | React + Vite | Vercel         | 100GB Bandwidth, automatic CI/CD on push.                                          |
+| Backend  | NestJS       | Render         | Free Web Service. (Spins down after 15 mins of inactivity; takes ~30s to wake up). |
+| Database | MongoDB      | MongoDB Atlas  | M0 Cluster: 512MB storage, shared RAM.                                             |
+| CI/CD    | Automation   | GitHub Actions | 2,000 free action minutes per month (free forever for public repos).               |
 
 > [!IMPORTANT]
-> **Deploy in this exact order**: MongoDB Atlas → Upstash Redis → Backend on Render → Frontend on Vercel.
+> **Deploy in this exact order**: MongoDB Atlas → Backend on Render → Frontend on Vercel.
 > Each step produces a URL/secret that the next step needs.
 
 ---
 
 ## 🛠️ Step-by-Step Deployment Guide
 
-### Phase 1: Managed Databases (MongoDB & Redis)
+### Phase 1: Managed Database (MongoDB)
 
 #### MongoDB Atlas
 
@@ -35,13 +34,6 @@ To deploy Bookmarker for $0 upfront with a professional CI/CD pipeline, we will 
 ```
 MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/bookmarker?retryWrites=true&w=majority
 ```
-
-#### Upstash Redis
-
-1. Go to [console.upstash.com](https://console.upstash.com) and create a free account.
-2. Create a new **Redis database** — choose the region closest to your Render backend.
-3. From the database dashboard, scroll down to the "Node" tab and copy the **REDIS_URL**. It will look something like this:
-   `rediss://default:gQAA...@touched-meerkat-209488.upstash.io:6379`
 
 ---
 
@@ -64,17 +56,18 @@ MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/bookmarke
 
 4. Set the following **Environment Variables** in the Render dashboard:
 
-   | Variable               | Value                                                     |
-   | ---------------------- | --------------------------------------------------------- |
-   | `MONGODB_URI`          | From Atlas (e.g., `mongodb+srv://...`)                    |
-   | `REDIS_URL`            | From Upstash (e.g., `rediss://...`)                       |
-   | `GOOGLE_CLIENT_ID`     | From Google Cloud Console                                 |
-   | `GOOGLE_CLIENT_SECRET` | From Google Cloud Console                                 |
-   | `GOOGLE_CALLBACK_URL`  | `https://your-app.onrender.com/auth/google/callback`      |
-   | `FRONTEND_URL`         | `https://your-app.vercel.app` _(set after Vercel deploy)_ |
-   | `JWT_SECRET`           | Run `openssl rand -base64 32` locally and paste result    |
-   | `NODE_ENV`             | `production`                                              |
-   | `LOG_LEVEL`            | `info`                                                    |
+   | Variable               | Value                                                      |
+   | ---------------------- | ---------------------------------------------------------- |
+   | `MONGODB_URI`          | From Atlas (e.g., `mongodb+srv://...`)                     |
+   | `GOOGLE_CLIENT_ID`     | From Google Cloud Console                                  |
+   | `GOOGLE_CLIENT_SECRET` | From Google Cloud Console                                  |
+   | `GOOGLE_CALLBACK_URL`  | `https://your-app.onrender.com/auth/google/callback`       |
+   | `FRONTEND_URL`         | `https://your-app.vercel.app` _(set after Vercel deploy)_  |
+   | `JWT_SECRET`           | A long random string (the app refuses to start without it) |
+   | `NODE_ENV`             | `production` (also hides Swagger and internal error text)  |
+   | `JWT_SECRET`           | Run `openssl rand -base64 32` locally and paste result     |
+   | `NODE_ENV`             | `production`                                               |
+   | `LOG_LEVEL`            | `info`                                                     |
 
 5. Click **Create Web Service**. Note the URL Render gives you (e.g. `https://bookmarker-api.onrender.com`).
 
@@ -156,10 +149,6 @@ Render spins down your backend after **15 minutes of inactivity**. The first req
 
 - Use [UptimeRobot](https://uptimerobot.com) (free) to ping `/health` every 14 minutes, keeping the server warm.
 - Accept it for a personal project — add a loading indicator on the frontend for the first login.
-
-### Upstash Request Limit
-
-The free tier allows **10,000 Redis commands/day**. Each scrape job uses ~3–5 commands. At 2,000 bookmarks imported/day you'd hit the limit — but for personal use this is more than sufficient.
 
 ### MongoDB Atlas Storage
 

@@ -34,15 +34,15 @@ This document serves as an **Onboarding Guide** for new engineers. It details th
 
 ### Backend
 
-| Technology              | Purpose                                                             |
-| :---------------------- | :------------------------------------------------------------------ |
-| **NestJS 11**           | Opinionated, modular Node.js framework utilizing decorators and DI. |
-| **Fastify**             | High-performance HTTP server underlying NestJS.                     |
-| **MongoDB (Mongoose)**  | Primary database with schema validation and virtuals.               |
-| **Agenda / BullMQ**     | Redis-backed asynchronous job queue for web scraping.               |
-| **Puppeteer & Cheerio** | HTML parsing and headless browser fallback for JS-rendered pages.   |
-| **Socket.io**           | WebSocket gateway for pushing real-time updates to the client.      |
-| **PassportJS**          | Google OAuth 2.0 and JWT cookie-based authentication.               |
+| Technology                | Purpose                                                               |
+| :------------------------ | :-------------------------------------------------------------------- |
+| **NestJS 11**             | Opinionated, modular Node.js framework utilizing decorators and DI.   |
+| **Fastify**               | High-performance HTTP server underlying NestJS.                       |
+| **MongoDB (Mongoose)**    | Primary database with schema validation and virtuals.                 |
+| **Agenda**                | MongoDB-backed job queue for scraping and the weekly dead-link check. |
+| **Cheerio & Readability** | SSRF-guarded HTTP fetch, metadata parsing and reader-mode extraction. |
+| **Socket.io**             | WebSocket gateway for pushing real-time updates to the client.        |
+| **PassportJS**            | Google OAuth 2.0 and JWT cookie-based authentication.                 |
 
 ---
 
@@ -102,10 +102,10 @@ frontend/src/domains/bookmarks/
 1.  **Client Action**: User pastes a URL and submits.
 2.  **Frontend Application**: `useBookmarks` React Query mutation executes, sending a POST request.
 3.  **Backend Presentation**: `BookmarksController` intercepts the request, validates the DTO, and calls `BookmarksService`.
-4.  **Backend Application**: The service tells the injected `IBookmarkRepository` to save a "Scraping..." placeholder. It then queues an `Agenda` job.
+4.  **Backend Application**: The service tells the injected `IBookmarkRepository` to save the bookmark with `scrapeStatus: pending`. It then queues an `Agenda` job.
 5.  **Backend Infrastructure (Persistence)**: `BookmarksMongooseRepository` maps the domain entity to Mongoose, saves it, and returns the entity.
-6.  **Backend Infrastructure (Job)**: The worker scrapes the site using Cheerio/Puppeteer, updates the DB via the interface, and triggers the `EventsGateway`.
-7.  **Real-Time Sync**: Socket.io pushes a `bookmarkUpdated` event to the client, invalidating the React Query cache and instantly refreshing the UI.
+6.  **Backend Infrastructure (Job)**: The worker fetches the page through the SSRF-safe client, fills only the fields the user left empty in one atomic update, and triggers the `EventsGateway`.
+7.  **Real-Time Sync**: Socket.io pushes a `bookmarkUpdated` event to the client, patching the affected bookmark directly in the React Query cache.
 
 ---
 
@@ -113,9 +113,8 @@ frontend/src/domains/bookmarks/
 
 ### Prerequisites
 
-- Node.js v20+
+- Node.js v22+
 - MongoDB (Local or Atlas)
-- Redis (For the background job queue)
 - Google OAuth Credentials (for authentication)
 
 ### 1. Backend Setup
@@ -123,7 +122,7 @@ frontend/src/domains/bookmarks/
 ```bash
 cd backend
 npm install
-cp .env.example .env   # Fill in your Mongo, Redis, and Google OAuth credentials
+cp .env.example .env   # Fill in your Mongo and Google OAuth credentials
 npm run start:dev      # Starts NestJS on http://localhost:8080
 ```
 
