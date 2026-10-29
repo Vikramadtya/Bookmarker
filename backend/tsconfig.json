@@ -14,6 +14,12 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@core/*": ["src/core/*"],
+      "@identity/*": ["src/modules/identity/*"],
+      "@workspace/*": ["src/modules/workspace/*"],
+      "@content/*": ["src/modules/content/*"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,

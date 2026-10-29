@@ -6,6 +6,32 @@
   <component name="ChangeListManager">
     <list default="true" id="a29715a0-604d-4f3d-a03b-baa7ac235612" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/api-types/index.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/api-types/models/Bookmark.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/api-types/models/BookmarkCreate.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/api-types/models/Folder.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/api-types/models/FolderCreate.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.repository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/bookmarks.repository.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/bookmarks/scrape.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/bookmarks/scrape.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/dto/create-folder.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/dto/create-folder.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/folders.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/folders.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/folders.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/folders/folders.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/folders/shared.controller.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/LandingPage.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/PublicCollectionView.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/bookmarks/BookmarkList.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/bookmarks/BookmarkList.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/bookmarks/index.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/settings/SettingsModal.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/sidebar/folderSideBar.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/sidebar/folderSideBar.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useBookmarks.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useBookmarks.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/providers.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/providers.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -26,23 +52,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="2.0983776941876373" />
-      <entry key="MS500" value="5.553616662566576" />
-      <entry key="S2" value="7.86920508204419" />
-      <entry key="S5" value="8.519708603331285" />
-      <entry key="S10" value="8.754893537494418" />
-      <entry key="S30" value="8.917166151795016" />
-      <entry key="S60" value="8.958439739893151" />
-      <entry key="M2" value="8.979183893736595" />
-      <entry key="M5" value="8.991778681791747" />
-      <entry key="M10" value="9.092961519074807" />
-      <entry key="M15" value="9.928818201534197" />
-      <entry key="M30" value="17.979601777259475" />
-      <entry key="H1" value="36.93553085456067" />
-      <entry key="H2" value="58.319603350975136" />
-      <entry key="H4" value="76.15700911754138" />
-      <entry key="D1" value="143.68234436033498" />
-      <entry key="W1" value="188.74325286952347" />
+      <entry key="MS100" value="1.8380734813721218" />
+      <entry key="MS500" value="4.100631630036439" />
+      <entry key="S2" value="9.239786996665643" />
+      <entry key="S5" value="15.640963636726985" />
+      <entry key="S10" value="23.39624820022793" />
+      <entry key="S30" value="36.18155447699632" />
+      <entry key="S60" value="41.44171927039172" />
+      <entry key="M2" value="44.538323032763756" />
+      <entry key="M5" value="46.568621773690424" />
+      <entry key="M10" value="47.27627083018289" />
+      <entry key="M15" value="47.515707761906725" />
+      <entry key="M30" value="47.75694590580722" />
+      <entry key="H1" value="47.878245033134185" />
+      <entry key="H2" value="47.93908522296376" />
+      <entry key="H4" value="48.01266283997994" />
+      <entry key="D1" value="78.49211891615248" />
+      <entry key="W1" value="240.94897455622754" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -64,23 +90,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="2.030877040855718" />
-      <entry key="MS500" value="5.487748584684234" />
-      <entry key="S2" value="7.844121505192581" />
-      <entry key="S5" value="8.508742931902075" />
-      <entry key="S10" value="8.74924394117501" />
-      <entry key="S30" value="8.915244774303812" />
-      <entry key="S60" value="8.957474207039217" />
-      <entry key="M2" value="8.978699910834116" />
-      <entry key="M5" value="8.991584788785737" />
-      <entry key="M10" value="9.092861114883657" />
-      <entry key="M15" value="9.928731096491772" />
-      <entry key="M30" value="17.979458673894523" />
-      <entry key="H1" value="36.93534056587384" />
-      <entry key="H2" value="58.31944084143538" />
-      <entry key="H4" value="76.15690102386937" />
-      <entry key="D1" value="143.68231264085546" />
-      <entry key="W1" value="188.7432466862654" />
+      <entry key="MS100" value="1.7916176199257576" />
+      <entry key="MS500" value="4.075023528935915" />
+      <entry key="S2" value="9.21507317525764" />
+      <entry key="S5" value="15.609681119098962" />
+      <entry key="S10" value="23.36095458100822" />
+      <entry key="S30" value="36.15856118892514" />
+      <entry key="S60" value="41.427949353749895" />
+      <entry key="M2" value="44.53077532661152" />
+      <entry key="M5" value="46.565429887691934" />
+      <entry key="M10" value="47.27464486457085" />
+      <entry key="M15" value="47.514617019738864" />
+      <entry key="M30" value="47.75639712854196" />
+      <entry key="H1" value="47.87796978849779" />
+      <entry key="H2" value="47.9389473860651" />
+      <entry key="H4" value="48.01259384622515" />
+      <entry key="D1" value="78.49210426695224" />
+      <entry key="W1" value="240.9489682236893" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -103,7 +129,7 @@
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
     &quot;copilot.chat.legacySessionMetadata.migrated&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;add-features&quot;,
     &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/vikramadityasingh/Repository/bookmarker&quot;,
@@ -175,7 +201,9 @@
       <updated>1785493778261</updated>
       <workItem from="1785493779267" duration="5000" />
       <workItem from="1785493790746" duration="1000" />
-      <workItem from="1785493796668" duration="25357000" />
+      <workItem from="1785493796668" duration="35776000" />
+      <workItem from="1786636877543" duration="598000" />
+      <workItem from="1787376175575" duration="39000" />
     </task>
     <servers />
   </component>

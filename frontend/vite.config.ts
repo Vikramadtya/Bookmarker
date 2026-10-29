@@ -16,6 +16,12 @@ export default defineConfig({
       devOptions: {
         enabled: true,
       },
+      // Only precache small static assets (HTML, CSS, SW registration).
+      // Do NOT precache JS bundles — they are large and change on every deploy,
+      // which would trigger a 900KB+ download for every user on every update.
+      workbox: {
+        globPatterns: ["**/*.{html,css}"],
+      },
       manifest: {
         name: "Bookmarker",
         short_name: "Bookmarker",
@@ -31,6 +37,39 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Split large vendor libraries into separate cached chunks.
+        // Users re-download only what changed — not the entire 912KB bundle.
+        manualChunks(id) {
+          if (
+            id.includes("node_modules/react") ||
+            id.includes("node_modules/react-dom") ||
+            id.includes("react-router-dom")
+          ) {
+            return "react-vendor";
+          }
+          if (id.includes("@tanstack")) {
+            return "query-vendor";
+          }
+          if (
+            id.includes("framer-motion") ||
+            id.includes("lucide-react") ||
+            id.includes("sonner")
+          ) {
+            return "ui-vendor";
+          }
+          if (id.includes("@dnd-kit")) {
+            return "dnd-vendor";
+          }
+          if (id.includes("cmdk")) {
+            return "editor-vendor";
+          }
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
