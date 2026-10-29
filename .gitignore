@@ -7,3 +7,6 @@ backend/dist/
 .DS_Store
 *.log
 frontend-old/
+
+frontend/dev-dist/
+.idea/workspace.xml
