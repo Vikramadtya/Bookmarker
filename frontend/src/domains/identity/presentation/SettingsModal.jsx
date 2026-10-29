@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, User, Download, AlertTriangle } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/domains/identity/application/useAuth";
@@ -30,14 +30,14 @@ export default function SettingsModal() {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState("");
 
-  if (!isSettingsModalOpen) return null;
-
   // Set initial username when user loads
   useEffect(() => {
     if (userDetails?.username && newUsername === "" && !isEditingUsername) {
       setNewUsername(userDetails.username);
     }
   }, [userDetails?.username, isEditingUsername, newUsername]);
+
+  if (!isSettingsModalOpen) return null;
 
   const handleImportClick = () => {
     fileInputRef.current?.click();

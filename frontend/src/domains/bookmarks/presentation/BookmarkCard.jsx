@@ -128,6 +128,7 @@ export default function BookmarkCard({
         </button>
         <button
           onClick={(e) => handleDelete(e, b.id)}
+          title="Delete Bookmark"
           className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
         >
           <Trash2 className="h-4 w-4 stroke-[1.5]" />

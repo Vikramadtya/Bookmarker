@@ -21,8 +21,17 @@ export const useAppStore = create(
 
       // Bookmark Central State
       selectedBookmark: null,
-      setSelectedBookmark: (bookmark) =>
-        set({ selectedBookmark: bookmark }, false, "setSelectedBookmark"),
+      setSelectedBookmark: (bookmarkOrUpdater) =>
+        set(
+          (state) => ({
+            selectedBookmark:
+              typeof bookmarkOrUpdater === "function"
+                ? bookmarkOrUpdater(state.selectedBookmark)
+                : bookmarkOrUpdater,
+          }),
+          false,
+          "setSelectedBookmark"
+        ),
 
       bookmarkFormModal: { isOpen: false, type: null, data: null },
       openBookmarkModal: (type, data = null) =>

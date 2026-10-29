@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { X, Link2, Sparkles, Loader2, Type } from "lucide-react";
 import * as z from "zod";
 import { useFolders } from "@/domains/folders/application/useFolders";
@@ -55,6 +55,7 @@ const ModalForm = ({
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(formSchema),
@@ -67,6 +68,13 @@ const ModalForm = ({
       comments: initialData?.comments || [],
     },
   });
+
+  // Once folders async-load, patch the folderId if it's still blank
+  useEffect(() => {
+    if (defaultFolderId && !watch("folderId")) {
+      setValue("folderId", defaultFolderId);
+    }
+  }, [defaultFolderId, setValue, watch]);
 
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
 
@@ -230,7 +238,7 @@ const ModalForm = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || (subFolders.length === 0 && !inbox)}
+              disabled={isSubmitting || folders.length === 0}
               className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 active:scale-[0.98] disabled:opacity-70 disabled:hover:bg-blue-600"
             >
               {isSubmitting ? (

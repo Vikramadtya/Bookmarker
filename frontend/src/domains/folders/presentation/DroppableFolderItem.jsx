@@ -2,7 +2,6 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Folder, Layers, Lock, EyeOff, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUpdateFolder } from "@/domains/folders/application/useFolders";
 
 export default function DroppableFolderItem({
   folder,
@@ -20,7 +19,6 @@ export default function DroppableFolderItem({
     id: folder.id,
     data: { type: "folder" },
   });
-  const updateFolder = useUpdateFolder();
 
   return (
     <div

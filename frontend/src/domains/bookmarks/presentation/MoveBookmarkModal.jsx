@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function MoveBookmarkModal() {
-  const { moveBookmarkModal, closeMoveModal } = useAppStore();
+  const { moveBookmarkModal, closeMoveModal, setSelectedBookmark } =
+    useAppStore();
   const { data: folders = [] } = useFolders();
   const updateBookmark = useUpdateBookmark();
 
@@ -20,6 +21,15 @@ export default function MoveBookmarkModal() {
       {
         onSuccess: () => {
           toast.success("Bookmark moved successfully");
+          // Keep detail panel in sync with the new folder
+          setSelectedBookmark((prev) =>
+            prev?.id === moveBookmarkModal.bookmark?.id
+              ? {
+                  ...prev,
+                  folderId: targetFolderId === "root" ? null : targetFolderId,
+                }
+              : prev
+          );
           closeMoveModal();
         },
       }

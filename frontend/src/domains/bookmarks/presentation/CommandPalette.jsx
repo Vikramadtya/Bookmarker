@@ -27,6 +27,9 @@ export function CommandPalette() {
         e.preventDefault();
         setOpen((open) => !open);
       }
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
@@ -63,11 +66,8 @@ export function CommandPalette() {
 
       if (searchFields.title && bookmark.title?.toLowerCase().includes(query))
         return true;
-      if (
-        searchFields.title &&
-        bookmark.bookmarkURL?.toLowerCase().includes(query)
-      )
-        return true;
+      // URL always searchable regardless of field toggles
+      if (bookmark.bookmarkURL?.toLowerCase().includes(query)) return true;
       if (
         searchFields.description &&
         bookmark.description?.toLowerCase().includes(query)
