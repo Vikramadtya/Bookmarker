@@ -1,18 +1,13 @@
 import { User } from '../../domain/entities/user.entity';
-import { UserDocument } from './user.schema';
 
 export class UserMapper {
-  static toDomain(doc: UserDocument): User {
-    return new User(
-      doc._id.toString(),
-      doc.email,
-      doc.username,
-      doc.name,
-      doc.picture,
-    );
-  }
-
-  static toDomainList(docs: UserDocument[]): User[] {
-    return docs.map((doc) => UserMapper.toDomain(doc));
+  static toDomain(doc: any): User {
+    return {
+      id: String(doc._id),
+      email: doc.email,
+      username: doc.username,
+      name: doc.name,
+      picture: doc.picture,
+    };
   }
 }

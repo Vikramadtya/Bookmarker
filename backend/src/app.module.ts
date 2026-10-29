@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LoggerModule } from 'nestjs-pino';
-import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AgendaModule } from '@core/common/agenda.module';
@@ -12,28 +11,28 @@ import { BookmarksModule } from '@content/bookmarks/bookmarks.module';
 import { AuthModule } from '@identity/auth/auth.module';
 import { SettingsModule } from '@identity/settings/settings.module';
 import { HealthModule } from '@core/health/health.module';
-import { ScheduleModule } from '@nestjs/schedule';
 import { UsersModule } from '@identity/users/users.module';
 import { SharedModule } from '@workspace/shared/shared.module';
+import {
+  getMongoUri,
+  isProduction,
+  validateEnv,
+} from '@core/config/app.config';
 
 @Module({
   imports: [
     // ── Config ─────────────────────────────────────────────────────────────
     ConfigModule.forRoot({
-      isGlobal: true, // Available to every module without re-importing
+      isGlobal: true,
       envFilePath: '.env',
-      cache: true, // Cache parsed env values for faster access
+      cache: true,
+      validate: validateEnv,
     }),
 
     // ── Database ────────────────────────────────────────────────────────────
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        uri: config.get<string>(
-          'MONGODB_URI',
-          'mongodb://localhost:27017/bookmarker',
-        ),
-      }),
+      useFactory: (config: ConfigService) => ({ uri: getMongoUri(config) }),
     }),
 
     // ── Agenda (MongoDB Job Queue) ───────────────────────────────────────────
@@ -42,7 +41,7 @@ import { SharedModule } from '@workspace/shared/shared.module';
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const isProd = config.get<string>('NODE_ENV') === 'production';
+        const isProd = isProduction(config);
         const logLevel = config.get<string>(
           'LOG_LEVEL',
           isProd ? 'info' : 'debug',
@@ -83,28 +82,13 @@ import { SharedModule } from '@workspace/shared/shared.module';
       },
     }),
 
-    // ── Caching (Redis) ──────────────────────────────────────────────────────
-    CacheModule.registerAsync({
-      isGlobal: true,
-      inject: [ConfigService],
-      useFactory: async (config: ConfigService) => {
-        const redisUrl = config.get<string>('REDIS_URL');
-        if (!redisUrl) return {};
-
-        const { createKeyv } = await import('@keyv/redis');
-        return {
-          stores: [createKeyv(redisUrl)],
-        };
-      },
-    }),
     // ── Rate Limiting ────────────────────────────────────────────────────────
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ThrottlerModule.forRoot([
+      { ttl: 60_000, limit: Number(process.env.THROTTLE_LIMIT) || 100 },
+    ]),
 
     // ── Health Checks ────────────────────────────────────────────────────────
     HealthModule,
-
-    // ── Cron Jobs ────────────────────────────────────────────────────────────
-    ScheduleModule.forRoot(),
 
     // ── Feature Modules ───────────────────────────────────────────────────────
     EventsModule,

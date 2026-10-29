@@ -1,28 +1,22 @@
-export class Folder {
-  constructor(
-    public readonly id: string,
-    public name: string,
-    public slug: string,
-    public parentId: string | null,
-    public readonly userId: string,
-    public isPublic: boolean,
-    public isHidden: boolean,
-    public isLocked: boolean,
-    public passwordHash: string | null,
-  ) {}
+export interface Folder {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  userId: string;
+  isPublic: boolean;
+  isHidden: boolean;
+  isLocked: boolean;
+  isInbox: boolean;
+  passwordHash: string | null;
+}
 
-  lock(hash: string): void {
-    this.isLocked = true;
-    this.passwordHash = hash;
-  }
+/** Folder as sent to clients: never includes the password hash. */
+export type FolderView = Omit<Folder, 'passwordHash'>;
 
-  unlock(): void {
-    this.isLocked = false;
-    this.passwordHash = null;
-  }
-
-  rename(newName: string, newSlug: string): void {
-    this.name = newName;
-    this.slug = newSlug;
-  }
+export function toFolderView({
+  passwordHash: _hash,
+  ...view
+}: Folder): FolderView {
+  return view;
 }

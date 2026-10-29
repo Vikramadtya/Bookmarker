@@ -16,6 +16,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { SettingsService } from './settings.service';
 import { ImportDto } from './dto/import.dto';
 import { CurrentUser } from '@core/common/decorators/current-user.decorator';
@@ -37,6 +38,7 @@ export class SettingsController {
   }
 
   @Post('import')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Import bookmarks and folders from Netscape HTML string',

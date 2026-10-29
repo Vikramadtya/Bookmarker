@@ -6,11 +6,15 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFolderDto {
   @ApiPropertyOptional({ description: 'Folder display name' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @MinLength(1, { message: 'Folder name cannot be empty' })
+  @MaxLength(100)
   name: string;
 
   @ApiPropertyOptional({
@@ -18,7 +22,7 @@ export class CreateFolderDto {
   })
   @IsOptional()
   @IsUUID()
-  parentId?: string;
+  parentId?: string | null;
 
   @ApiPropertyOptional({ description: 'Make this folder publicly shareable' })
   @IsOptional()

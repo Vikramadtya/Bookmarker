@@ -13,46 +13,27 @@ export class UserMongooseRepository implements IUserRepository {
   ) {}
 
   async create(data: Partial<User>): Promise<User> {
-    const created = await this.model.create(data as any);
-    return UserMapper.toDomain(created);
+    const { id: _id, ...rest } = data;
+    const created: any = await this.model.create(rest);
+    return UserMapper.toDomain(created.toObject());
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const doc = (await this.model
-      .findOne({ email })
-      .lean({ virtuals: true })
-      .exec()) as UserDocument | null;
-    if (!doc) return null;
-    return UserMapper.toDomain(doc);
+    const doc = await this.model.findOne({ email }).lean().exec();
+    return doc ? UserMapper.toDomain(doc) : null;
   }
 
   async findByUsername(username: string): Promise<User | null> {
-    const doc = (await this.model
-      .findOne({ username })
-      .lean({ virtuals: true })
-      .exec()) as UserDocument | null;
-    if (!doc) return null;
-    return UserMapper.toDomain(doc);
+    const doc = await this.model.findOne({ username }).lean().exec();
+    return doc ? UserMapper.toDomain(doc) : null;
   }
 
-  async findById(id: string): Promise<User | null> {
-    const doc = (await this.model
-      .findById(id)
-      .lean({ virtuals: true })
-      .exec()) as UserDocument | null;
-    if (!doc) return null;
-    return UserMapper.toDomain(doc);
-  }
-
-  async update(
-    filter: Record<string, unknown>,
-    data: Partial<User>,
-  ): Promise<User | null> {
-    const updated = (await this.model
-      .findOneAndUpdate(filter, data, { new: true })
-      .lean({ virtuals: true })
-      .exec()) as UserDocument | null;
-    if (!updated) return null;
-    return UserMapper.toDomain(updated);
+  async update(id: string, data: Partial<User>): Promise<User | null> {
+    const { id: _id, ...rest } = data;
+    const doc = await this.model
+      .findByIdAndUpdate(id, { $set: rest }, { returnDocument: 'after' })
+      .lean()
+      .exec();
+    return doc ? UserMapper.toDomain(doc) : null;
   }
 }

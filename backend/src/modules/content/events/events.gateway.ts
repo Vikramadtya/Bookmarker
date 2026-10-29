@@ -1,86 +1,76 @@
 import {
   WebSocketGateway,
   WebSocketServer,
-  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as jsonwebtoken from 'jsonwebtoken';
+import { JwtService } from '@nestjs/jwt';
+import { AUTH_COOKIE } from '@core/config/app.config';
+
+const frontendOrigin = () =>
+  process.env.FRONTEND_URL || 'http://localhost:5173';
+const isProd = () => process.env.NODE_ENV === 'production';
+
+function readCookie(
+  header: string | undefined,
+  name: string,
+): string | undefined {
+  for (const part of (header ?? '').split(';')) {
+    const [key, ...value] = part.trim().split('=');
+    if (key === name) return decodeURIComponent(value.join('='));
+  }
+  return undefined;
+}
+
+// Browsers always send Origin, so checking it blocks cross-site WebSocket
+// hijacking. Non-browser clients (no Origin) cannot ride on a victim's cookies.
+const isOriginAllowed = (origin: string | undefined) =>
+  !origin ||
+  origin === frontendOrigin() ||
+  (!isProd() && origin.startsWith('http://localhost'));
 
 @WebSocketGateway({
   cors: {
-    // BUG-02: Only allow the configured FRONTEND_URL — never a wildcard.
-    // This prevents cross-site WebSocket hijacking.
     origin: (
       origin: string | undefined,
-      callback: (err: Error | null, allow: boolean) => void,
-    ) => {
-      const config = new ConfigService();
-      const allowed =
-        config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-      const isAllowed =
-        !origin || origin === allowed || origin.startsWith('http://localhost');
-      callback(null, isAllowed);
-    },
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => callback(null, isOriginAllowed(origin)),
     credentials: true,
   },
+  // CORS settings are not applied to WebSocket upgrade requests, so check there too.
+  allowRequest: (
+    req: { headers: { origin?: string } },
+    callback: (err: string | null, ok: boolean) => void,
+  ) => callback(null, isOriginAllowed(req.headers.origin)),
 })
-export class EventsGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(EventsGateway.name);
 
-  constructor(private readonly config: ConfigService) {}
-
-  afterInit() {
-    this.logger.log('WebSocket Gateway Initialized');
-  }
+  constructor(private readonly jwt: JwtService) {}
 
   async handleConnection(client: Socket) {
-    const token = client.handshake.auth?.token as string;
-    if (!token) {
-      this.logger.warn(
-        `Client connected without token — disconnecting: ${client.id}`,
-      );
-      client.disconnect();
-      return;
-    }
-
+    const token = readCookie(client.handshake.headers.cookie, AUTH_COOKIE);
     try {
-      const secret = this.config.get<string>('JWT_SECRET');
-      if (!secret) throw new Error('JWT_SECRET not configured');
-
-      // BUG-02 (cont.): Use the statically imported module, not require()
-      const payload = jsonwebtoken.verify(token, secret) as {
-        email?: string;
-      };
-      const userId = payload.email;
-
-      if (userId) {
-        await client.join(userId);
-        this.logger.log(`Client connected: ${client.id} → room: ${userId}`);
-      } else {
-        throw new Error('No email in token payload');
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`WebSocket auth failed for ${client.id}: ${message}`);
+      if (!token) throw new Error('missing auth cookie');
+      const { email } = await this.jwt.verifyAsync<{ email?: string }>(token);
+      if (!email) throw new Error('no email in token');
+      await client.join(email);
+    } catch (err) {
+      this.logger.warn(
+        `WebSocket auth failed for ${client.id}: ${(err as Error).message}`,
+      );
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected: ${client.id}`);
+    this.logger.debug(`Client disconnected: ${client.id}`);
   }
 
-  /**
-   * Emit a bookmark update event ONLY to the user who owns it.
-   * Clients join a room named after their userId on connection.
-   */
+  /** Emit only to the room of the user who owns the bookmark. */
   emitBookmarkUpdated(
     userId: string,
     bookmarkId: string,

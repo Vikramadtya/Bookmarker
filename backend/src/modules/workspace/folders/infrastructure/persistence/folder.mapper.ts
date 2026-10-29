@@ -1,22 +1,23 @@
 import { Folder } from '../../domain/entities/folder.entity';
-import { FolderDocument } from './folder.schema';
 
 export class FolderMapper {
-  static toDomain(doc: FolderDocument): Folder {
-    return new Folder(
-      doc._id.toString(),
-      doc.name,
-      doc.slug,
-      doc.parentId,
-      doc.userId,
-      doc.isPublic,
-      doc.isHidden,
-      doc.isLocked,
-      doc.passwordHash,
-    );
+  static toDomain(doc: any): Folder {
+    return {
+      id: String(doc._id),
+      name: doc.name,
+      slug: doc.slug,
+      parentId: doc.parentId ?? null,
+      userId: doc.userId,
+      isPublic: !!doc.isPublic,
+      isHidden: !!doc.isHidden,
+      isLocked: !!doc.isLocked,
+      // Folders created before the flag existed are recognised by name.
+      isInbox: !!doc.isInbox || (doc.name === 'Inbox' && !doc.parentId),
+      passwordHash: doc.passwordHash ?? null,
+    };
   }
 
-  static toDomainList(docs: FolderDocument[]): Folder[] {
-    return docs.map((doc) => FolderMapper.toDomain(doc));
+  static toDomainList(docs: any[]): Folder[] {
+    return docs.map(FolderMapper.toDomain);
   }
 }

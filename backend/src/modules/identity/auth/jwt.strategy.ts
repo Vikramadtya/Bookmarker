@@ -3,41 +3,30 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest } from 'fastify';
+import { AUTH_COOKIE } from '@core/config/app.config';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  name?: string;
+  picture?: string;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(config: ConfigService) {
-    const secret = config.get<string>('JWT_SECRET');
-    if (!secret) {
-      throw new Error(
-        'JWT_SECRET environment variable is required but not set.',
-      );
-    }
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        (request: FastifyRequest) => {
-          return (request?.cookies?.['auth_token'] as string) ?? null;
-        },
+        (request: FastifyRequest) =>
+          (request?.cookies?.[AUTH_COOKIE] as string) ?? null,
       ]),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
-  async validate(payload: {
-    id: string;
-    email: string;
-    username: string;
-    name: string;
-    picture?: string;
-  }) {
-    return {
-      id: payload.id,
-      email: payload.email,
-      username: payload.username,
-      name: payload.name,
-      picture: payload.picture,
-    };
+  validate({ id, email, username, name, picture }: AuthUser): AuthUser {
+    return { id, email, username, name, picture };
   }
 }

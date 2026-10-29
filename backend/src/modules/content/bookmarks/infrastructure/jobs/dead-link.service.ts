@@ -1,72 +1,77 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import type { Agenda } from 'agenda';
 import { IBookmarkRepository } from '../../domain/repositories/bookmark.repository.interface';
-import axios from 'axios';
+import { safeRequest } from '@core/security/url-safety';
+import { mapLimit } from '@core/common/async';
+
+const RECHECK_AFTER_DAYS = 30;
+const BATCH_SIZE = 100;
+const MAX_PER_RUN = 2000;
+const CONCURRENCY = 10;
+const DEAD_STATUSES = new Set([404, 410]);
+// Servers that reject HEAD but would serve GET.
+const HEAD_UNSUPPORTED = new Set([400, 403, 405, 501]);
 
 @Injectable()
-export class DeadLinkService {
+export class DeadLinkService implements OnModuleInit {
   private readonly logger = new Logger(DeadLinkService.name);
 
   constructor(
     @Inject('IBookmarkRepository')
     private readonly bookmarksRepository: IBookmarkRepository,
+    @Inject('AGENDA') private readonly agenda: Agenda,
   ) {}
 
-  // Run every Sunday at midnight
-  @Cron(CronExpression.EVERY_WEEK)
-  async checkDeadLinks() {
-    this.logger.log('Starting dead link check...');
+  /** Scheduled through Agenda so only one instance runs it, however many replicas are up. */
+  async onModuleInit() {
+    this.agenda.define('check-dead-links', async () => this.run());
+    try {
+      await this.agenda.every('1 week', 'check-dead-links');
+    } catch (error) {
+      this.logger.error(
+        'Could not schedule dead-link check',
+        (error as Error).stack,
+      );
+    }
+  }
 
-    // Find bookmarks that haven't been checked in the last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    // Limit to 100 to avoid overwhelming the server in one go
-    const bookmarksToCheck = await this.bookmarksRepository.findWithFilter(
-      {
-        $or: [
-          { lastCheckedAt: { $exists: false } },
-          { lastCheckedAt: { $lt: thirtyDaysAgo } },
-        ],
-      },
-      { limit: 100 },
+  private async run() {
+    const cutoff = new Date(
+      Date.now() - RECHECK_AFTER_DAYS * 24 * 60 * 60 * 1000,
     );
+    let processed = 0;
 
-    if (bookmarksToCheck.length === 0) {
-      this.logger.log('No bookmarks need checking right now.');
-      return;
+    while (processed < MAX_PER_RUN) {
+      const batch = await this.bookmarksRepository.findStaleLinks(
+        cutoff,
+        BATCH_SIZE,
+      );
+      if (batch.length === 0) break;
+
+      const results = await mapLimit(batch, CONCURRENCY, async (b) => ({
+        id: b.id,
+        isDeadLink: await this.isDead(b.bookmarkURL),
+      }));
+      await this.bookmarksRepository.bulkSetLinkStatus(results);
+      processed += batch.length;
     }
+    this.logger.log(`Dead-link check finished (${processed} checked)`);
+  }
 
-    this.logger.log(`Found ${bookmarksToCheck.length} bookmarks to check.`);
-
-    for (const bookmark of bookmarksToCheck) {
-      try {
-        // Ping the URL
-        await axios.head(bookmark.bookmarkURL, { timeout: 10000 });
-
-        // It's alive
-        await this.bookmarksRepository.updateById(bookmark.id, {
-          isDeadLink: false,
-          lastCheckedAt: new Date(),
+  private async isDead(url: string): Promise<boolean> {
+    try {
+      let res = await safeRequest(url, { method: 'HEAD', timeoutMs: 10_000 });
+      if (HEAD_UNSUPPORTED.has(res.status)) {
+        res = await safeRequest(url, {
+          method: 'GET',
+          timeoutMs: 10_000,
+          maxBytes: 1024,
         });
-      } catch (error) {
-        // If it's a 4xx or 5xx, or network error (like ENOTFOUND)
-        const isDead =
-          !!error.response ||
-          error.code === 'ENOTFOUND' ||
-          error.code === 'ECONNABORTED';
-
-        await this.bookmarksRepository.updateById(bookmark.id, {
-          isDeadLink: isDead,
-          lastCheckedAt: new Date(),
-        });
-
-        if (isDead) {
-          this.logger.warn(`Found dead link: ${bookmark.bookmarkURL}`);
-        }
       }
+      return DEAD_STATUSES.has(res.status);
+    } catch (error) {
+      // Only a name that does not resolve counts as dead; timeouts and 5xx may be temporary.
+      return (error as NodeJS.ErrnoException).code === 'ENOTFOUND';
     }
-
-    this.logger.log('Finished dead link check run.');
   }
 }

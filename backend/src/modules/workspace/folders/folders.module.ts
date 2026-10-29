@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FoldersController } from './presentation/http/folders.controller';
 import { FoldersService } from './application/services/folders.service';
@@ -7,23 +7,18 @@ import {
   Folder,
   FolderSchema,
 } from './infrastructure/persistence/folder.schema';
-import { UsersModule } from '@identity/users/users.module';
-import { BookmarksModule } from '@content/bookmarks/bookmarks.module';
+import { BookmarkStoreModule } from '@content/bookmarks/bookmark-store.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Folder.name, schema: FolderSchema }]),
-    UsersModule,
-    forwardRef(() => BookmarksModule),
+    BookmarkStoreModule,
   ],
   controllers: [FoldersController],
   providers: [
     FoldersService,
-    {
-      provide: 'IFolderRepository',
-      useClass: FoldersMongooseRepository,
-    },
+    { provide: 'IFolderRepository', useClass: FoldersMongooseRepository },
   ],
-  exports: [FoldersService, 'IFolderRepository'],
+  exports: [FoldersService],
 })
 export class FoldersModule {}

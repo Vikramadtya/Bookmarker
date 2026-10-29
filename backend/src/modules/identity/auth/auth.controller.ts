@@ -1,12 +1,29 @@
-import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
-import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { UsersService } from '@identity/users/application/services/users.service';
-
+import {
+  AUTH_COOKIE,
+  authCookieOptions,
+  getFrontendUrl,
+} from '@core/config/app.config';
 import { GoogleAuthGuard } from './google-auth.guard';
+import type { AuthUser } from './jwt.strategy';
+
+const COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 @ApiTags('auth')
 @Controller('auth')
@@ -20,15 +37,15 @@ export class AuthController {
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Redirect to Google OAuth consent screen' })
-  @ApiResponse({ status: 302, description: 'Redirect to Google' })
   googleAuth() {
-    // Guard handles the redirect — no body needed
+    // The guard performs the redirect.
   }
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({
-    summary: 'Google OAuth callback — issues JWT cookie and redirects to app',
+    summary:
+      'Google OAuth callback: sets the auth cookie and redirects to the app',
   })
   async googleAuthRedirect(
     @Req() req: FastifyRequest,
@@ -39,70 +56,44 @@ export class AuthController {
       firstName: string;
       picture?: string;
     };
-
-    const dbUser = await this.usersService.findOrCreateUser({
+    const user = await this.usersService.findOrCreateUser({
       email: profile.email,
       name: profile.firstName,
       picture: profile.picture,
     });
 
     const token = this.jwtService.sign({
-      id: dbUser.id,
-      email: dbUser.email,
-      username: dbUser.username,
-      name: dbUser.name,
-      picture: dbUser.picture,
-    });
-    const frontendUrl =
-      this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-    const isProd = this.config.get<string>('NODE_ENV') === 'production';
-
-    reply.setCookie('auth_token', token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: 24 * 60 * 60, // seconds (not ms) for Fastify
-      path: '/',
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      picture: user.picture,
     });
 
-    reply.status(302).redirect(frontendUrl);
+    reply.setCookie(AUTH_COOKIE, token, {
+      ...authCookieOptions(this.config),
+      maxAge: COOKIE_MAX_AGE_SECONDS,
+    });
+    reply.status(302).redirect(getFrontendUrl(this.config));
   }
 
   @Get('status')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({
-    summary: 'Returns the authenticated user profile',
-  })
+  @ApiOperation({ summary: 'Returns the authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Authenticated user info' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   async status(@Req() req: FastifyRequest) {
-    const userPayload = (req as any).user;
-    // Fetch fresh user from DB using findOrCreateUser to ensure old users get a username generated
-    const dbUser = await this.usersService.findOrCreateUser({
-      email: userPayload.email,
-      name: userPayload.name,
-      picture: userPayload.picture,
-    });
-
-    return {
-      ...userPayload,
-      username: dbUser.username,
-      id: dbUser.id,
-    };
+    const { email } = (req as any).user as AuthUser;
+    // A token for a deleted user must not be accepted (or silently recreate the user).
+    const user = await this.usersService.findByEmail(email);
+    if (!user) throw new UnauthorizedException();
+    return user;
   }
 
-  @Get('logout')
-  @ApiOperation({ summary: 'Clear the auth cookie and redirect to the app' })
-  logout(@Res({ passthrough: false }) reply: FastifyReply) {
-    const frontendUrl =
-      this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-    const isProd = this.config.get<string>('NODE_ENV') === 'production';
-    reply.clearCookie('auth_token', {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      path: '/',
-    });
-    reply.status(302).redirect(frontendUrl);
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Clear the auth cookie' })
+  logout(@Res({ passthrough: true }) reply: FastifyReply) {
+    reply.clearCookie(AUTH_COOKIE, authCookieOptions(this.config));
   }
 }
