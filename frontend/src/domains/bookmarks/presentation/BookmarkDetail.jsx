@@ -1,3 +1,5 @@
+import { lazy, Suspense, useState } from "react";
+import { m, AnimatePresence } from "framer-motion";
 import {
   ExternalLink,
   Bookmark,
@@ -6,30 +8,28 @@ import {
   BookOpen,
   AlertTriangle,
 } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
+import {
+  useBookmark,
+  useUpdateBookmark,
+} from "@/domains/bookmarks/application/useBookmarks";
+import { Favicon } from "@/shared/ui/Favicon";
+import { FavoriteButton } from "@/shared/ui/FavoriteButton";
+import { cn } from "@/lib/utils";
 import BookmarkPreview from "./BookmarkPreview";
-import ReaderView from "./ReaderView";
 import BookmarkNotes from "./BookmarkNotes";
 import BookmarkMetadata from "./BookmarkMetadata";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
-import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
-import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/useAppStore";
+import { displayTitle } from "./bookmarkText";
+
+const ReaderView = lazy(() => import("./ReaderView"));
 
 export default function BookmarkDetail() {
-  const {
-    selectedBookmark: bookmark,
-    setSelectedBookmark,
-    openBookmarkModal,
-    openMoveModal,
-  } = useAppStore();
-  const [imageError, setImageError] = useState(false);
+  const selectedId = useAppStore((s) => s.selectedBookmarkId);
+  const openBookmarkModal = useAppStore((s) => s.openBookmarkModal);
+  const openMoveModal = useAppStore((s) => s.openMoveModal);
+  const { data: bookmark } = useBookmark(selectedId);
+  const { mutate: updateBookmark } = useUpdateBookmark();
   const [isReaderOpen, setIsReaderOpen] = useState(false);
-  const updateBookmark = useUpdateBookmark();
-
-  useEffect(() => {
-    setImageError(false);
-  }, [bookmark?.id]);
 
   if (!bookmark) {
     return (
@@ -44,7 +44,7 @@ export default function BookmarkDetail() {
 
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key={bookmark.id}
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
@@ -54,41 +54,21 @@ export default function BookmarkDetail() {
       >
         <div className="border-b border-slate-100 bg-white p-8 dark:border-slate-800/60 dark:bg-slate-950">
           <div className="absolute top-6 right-6 flex items-center gap-2">
-            <button
-              onClick={() => {
-                const newIsFavorite = !bookmark.isFavorite;
-                setSelectedBookmark({ ...bookmark, isFavorite: newIsFavorite });
-                updateBookmark.mutate({
+            <FavoriteButton
+              isFavorite={bookmark.isFavorite}
+              onClick={() =>
+                updateBookmark({
                   id: bookmark.id,
-                  data: { isFavorite: newIsFavorite },
-                });
-              }}
-              title={
-                bookmark.isFavorite
-                  ? "Remove from Favorites"
-                  : "Add to Favorites"
+                  data: { isFavorite: !bookmark.isFavorite },
+                })
               }
               className={cn(
-                "flex items-center justify-center rounded-lg border px-3 py-1.5 shadow-sm transition-all active:scale-95",
+                "flex items-center justify-center rounded-lg border px-3 py-1.5 shadow-sm active:scale-95",
                 bookmark.isFavorite
-                  ? "border-amber-200 bg-amber-50 text-amber-500 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/40"
-                  : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-amber-500 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+                  ? "border-amber-200 bg-amber-50 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/40"
+                  : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
               )}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill={bookmark.isFavorite ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            </button>
+            />
             <button
               onClick={() => openMoveModal(bookmark)}
               className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
@@ -115,21 +95,14 @@ export default function BookmarkDetail() {
           </div>
 
           <div className="mb-6 flex items-start gap-5">
-            {bookmark.logoURL && !imageError ? (
-              <img
-                src={bookmark.logoURL}
-                alt="Logo"
-                className="h-16 w-16 rounded-2xl border border-slate-100 bg-white object-contain p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <Bookmark className="h-6 w-6 text-slate-300 dark:text-slate-600" />
-              </div>
-            )}
+            <Favicon
+              src={bookmark.logoURL}
+              className="h-16 w-16 rounded-2xl p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              iconClassName="h-6 w-6"
+            />
             <div className="pt-1">
               <h2 className="mb-2 flex items-center gap-2 text-2xl leading-tight font-bold tracking-tight text-slate-900 dark:text-white">
-                {bookmark.title || "Untitled"}
+                {displayTitle(bookmark)}
                 {bookmark.isDeadLink && (
                   <span className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
                     <AlertTriangle className="h-3.5 w-3.5 stroke-[2]" />
@@ -159,11 +132,7 @@ export default function BookmarkDetail() {
             </div>
           )}
 
-          <BookmarkNotes
-            bookmark={bookmark}
-            setSelectedBookmark={setSelectedBookmark}
-            updateBookmark={updateBookmark}
-          />
+          <BookmarkNotes bookmark={bookmark} />
 
           <BookmarkMetadata bookmark={bookmark} />
         </div>
@@ -172,12 +141,16 @@ export default function BookmarkDetail() {
           <BookmarkPreview url={bookmark.bookmarkURL} />
         </div>
 
-        <ReaderView
-          bookmark={bookmark}
-          isOpen={isReaderOpen}
-          onClose={() => setIsReaderOpen(false)}
-        />
-      </motion.div>
+        {isReaderOpen && (
+          <Suspense fallback={null}>
+            <ReaderView
+              bookmark={bookmark}
+              isOpen
+              onClose={() => setIsReaderOpen(false)}
+            />
+          </Suspense>
+        )}
+      </m.div>
     </AnimatePresence>
   );
 }

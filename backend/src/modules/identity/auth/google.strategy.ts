@@ -1,6 +1,6 @@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-google-oauth20';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -17,17 +17,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(
-    _accessToken: string,
-    _refreshToken: string,
-    profile: any,
-  ): Promise<any> {
-    const { name, emails, photos } = profile;
+  async validate(_accessToken: string, _refreshToken: string, profile: any) {
+    const email = profile.emails?.[0];
+    if (!email?.value || email.verified === false) {
+      throw new UnauthorizedException('A verified Google email is required');
+    }
     return {
-      email: emails?.[0]?.value,
-      firstName: name?.givenName || 'User',
-      lastName: name?.familyName || '',
-      picture: photos?.[0]?.value || '',
+      email: email.value as string,
+      firstName: (profile.name?.givenName as string) || 'User',
+      picture: (profile.photos?.[0]?.value as string) || '',
     };
   }
 }

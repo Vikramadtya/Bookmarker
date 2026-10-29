@@ -1,9 +1,4 @@
-import {
-  IsArray,
-  ArrayNotEmpty,
-  ArrayMaxSize,
-  IsString,
-} from 'class-validator';
+import { IsArray, ArrayNotEmpty, ArrayMaxSize, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BulkDeleteDto {
@@ -15,6 +10,6 @@ export class BulkDeleteDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(500)
-  @IsString({ each: true })
+  @IsUUID('all', { each: true })
   ids: string[];
 }

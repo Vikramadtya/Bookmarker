@@ -1,29 +1,39 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { makeApiRequest } from "@/lib/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { makeApiRequest } from "@/lib/api";
 import { AUTH_URL } from "@/lib/metadata";
 
 export function useAuth() {
-  const queryClient = useQueryClient();
-
   return useQuery({
     queryKey: ["auth-status"],
     queryFn: async () => {
       try {
-        const data = await makeApiRequest({
+        return await makeApiRequest({
           url: `${AUTH_URL}/status`,
-          method: "GET",
-          name: "fetchAuthStatus",
-          meta: { skip401Logging: true },
+          meta: { silent: true },
         });
-        return data; // returns the user object
       } catch (err) {
-        if (err.response?.status === 401) {
-          return null; // Not authenticated
-        }
+        if (err.response?.status === 401) return null; // not signed in
         throw err;
       }
     },
-    retry: false, // Don't retry on 401
-    staleTime: Infinity, // Keep the session valid until explicitly invalidated
+    retry: false,
+    staleTime: Infinity, // the session is re-checked only when something signals it ended
+  });
+}
+
+/** Marks the user signed out and drops their cached data without refetching any of it. */
+export function endSession(queryClient) {
+  queryClient.setQueryData(["auth-status"], null);
+  queryClient.removeQueries({
+    predicate: (query) => query.queryKey[0] !== "auth-status",
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      makeApiRequest({ url: `${AUTH_URL}/logout`, method: "POST" }),
+    onSettled: () => endSession(queryClient),
   });
 }

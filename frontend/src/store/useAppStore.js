@@ -1,28 +1,29 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
+// Server data lives in React Query; this store only holds UI state.
+// Always read it with a selector (`useAppStore((s) => s.x)`) so a component
+// re-renders only when the slice it uses changes.
 export const useAppStore = create(
   devtools(
     (set) => ({
-      // UI State
       isSidebarCompact: false,
       isSettingsModalOpen: false,
       viewMode: "list", // 'list' | 'grid'
       setViewMode: (mode) => set({ viewMode: mode }, false, "setViewMode"),
-
       toggleSidebar: () =>
         set(
-          (state) => ({ isSidebarCompact: !state.isSidebarCompact }),
+          (s) => ({ isSidebarCompact: !s.isSidebarCompact }),
           false,
           "toggleSidebar"
         ),
       setSettingsModalOpen: (isOpen) =>
         set({ isSettingsModalOpen: isOpen }, false, "setSettingsModalOpen"),
 
-      // Bookmark Central State
-      selectedBookmark: null,
-      setSelectedBookmark: (bookmark) =>
-        set({ selectedBookmark: bookmark }, false, "setSelectedBookmark"),
+      // The open bookmark is stored by id; its data comes from the query cache.
+      selectedBookmarkId: null,
+      setSelectedBookmarkId: (id) =>
+        set({ selectedBookmarkId: id }, false, "setSelectedBookmarkId"),
 
       bookmarkFormModal: { isOpen: false, type: null, data: null },
       openBookmarkModal: (type, data = null) =>
@@ -38,7 +39,6 @@ export const useAppStore = create(
           "closeBookmarkModal"
         ),
 
-      // Move Modal State
       moveBookmarkModal: { isOpen: false, bookmark: null },
       openMoveModal: (bookmark) =>
         set(
@@ -53,12 +53,11 @@ export const useAppStore = create(
           "closeMoveModal"
         ),
 
-      // Bulk Selection State
       selectedBookmarks: new Set(),
       toggleBookmarkSelection: (id) =>
         set(
-          (state) => {
-            const next = new Set(state.selectedBookmarks);
+          (s) => {
+            const next = new Set(s.selectedBookmarks);
             if (next.has(id)) next.delete(id);
             else next.add(id);
             return { selectedBookmarks: next };
@@ -69,30 +68,23 @@ export const useAppStore = create(
       clearBookmarkSelection: () =>
         set({ selectedBookmarks: new Set() }, false, "clearBookmarkSelection"),
 
-      // Search State
       searchQuery: "",
       setSearchQuery: (query) =>
         set({ searchQuery: query }, false, "setSearchQuery"),
-
-      searchFields: {
-        title: true,
-        description: true,
-        notes: true,
-        tags: true,
-        content: true,
-      },
+      // Article content is not searched by default: it is large and slows every query.
+      searchFields: { title: true, description: true, notes: true, tags: true },
       toggleSearchField: (field) =>
         set(
-          (state) => ({
+          (s) => ({
             searchFields: {
-              ...state.searchFields,
-              [field]: !state.searchFields[field],
+              ...s.searchFields,
+              [field]: !s.searchFields[field],
             },
           }),
           false,
           "toggleSearchField"
         ),
     }),
-    { name: "AppStore" }
+    { name: "AppStore", enabled: import.meta.env.DEV }
   )
 );

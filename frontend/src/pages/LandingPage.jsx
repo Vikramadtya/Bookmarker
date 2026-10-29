@@ -3,16 +3,11 @@ import { NeonGradientCard } from "@/shared/ui/magicui/neon-gradient-card";
 import { SparklesText } from "@/shared/ui/magicui/sparkles-text";
 import { TextAnimate } from "@/shared/ui/magicui/text-animate";
 import { Particles } from "@/shared/ui/magicui/particles";
-import { BASE_URL } from "@/lib/metadata";
+import { SERVER_ORIGIN } from "@/lib/metadata";
 
 export default function LandingPage() {
   const handleLogin = () => {
-    try {
-      const url = new URL(BASE_URL);
-      window.location.href = url.origin + "/auth/google";
-    } catch (e) {
-      window.location.href = "http://localhost:8080/auth/google";
-    }
+    window.location.href = `${SERVER_ORIGIN}/auth/google`;
   };
 
   return (

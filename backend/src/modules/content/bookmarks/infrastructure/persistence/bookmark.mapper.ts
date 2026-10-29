@@ -1,28 +1,30 @@
 import { Bookmark } from '../../domain/entities/bookmark.entity';
-import { BookmarkDocument } from './bookmark.schema';
 
 export class BookmarkMapper {
-  static toDomain(doc: BookmarkDocument): Bookmark {
-    return new Bookmark(
-      doc._id.toString(),
-      doc.userId,
-      doc.title,
-      doc.bookmarkURL,
-      doc.description,
-      doc.logoURL,
-      doc.tags,
-      doc.isFavorite,
-      doc.folderId,
-      doc.author,
-      doc.comments || [],
-      doc.content,
-      doc.isArticle,
-      doc.isDeadLink,
-      doc.lastCheckedAt,
-    );
+  static toDomain(doc: any): Bookmark {
+    return {
+      id: String(doc._id),
+      userId: doc.userId,
+      title: doc.title ?? '',
+      bookmarkURL: doc.bookmarkURL,
+      description: doc.description ?? '',
+      logoURL: doc.logoURL ?? '',
+      tags: doc.tags ?? [],
+      isFavorite: !!doc.isFavorite,
+      folderId: doc.folderId,
+      author: doc.author ?? '',
+      comments: doc.comments ?? [],
+      content: doc.content ?? null,
+      isArticle: !!doc.isArticle,
+      isDeadLink: !!doc.isDeadLink,
+      lastCheckedAt: doc.lastCheckedAt ?? null,
+      scrapeStatus: doc.scrapeStatus ?? 'done',
+      creationDate: doc.createdAt,
+      updateDate: doc.updatedAt,
+    };
   }
 
-  static toDomainList(docs: BookmarkDocument[]): Bookmark[] {
-    return docs.map((doc) => BookmarkMapper.toDomain(doc));
+  static toDomainList(docs: any[]): Bookmark[] {
+    return docs.map(BookmarkMapper.toDomain);
   }
 }

@@ -1,52 +1,41 @@
-import { useAppStore } from "@/store/useAppStore";
-import BookmarkList from "./BookmarkList";
-import BookmarkDetail from "./BookmarkDetail";
+import { lazy, Suspense, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAppStore } from "@/store/useAppStore";
 import {
   useCreateBookmark,
   useUpdateBookmark,
 } from "@/domains/bookmarks/application/useBookmarks";
-import ModalForm from "@/domains/bookmarks/presentation/modalForm/ModalForm";
+import BookmarkList from "./BookmarkList";
+import BookmarkDetail from "./BookmarkDetail";
 import MoveBookmarkModal from "./MoveBookmarkModal";
 
-import { useEffect } from "react";
+const ModalForm = lazy(
+  () => import("@/domains/bookmarks/presentation/modalForm/ModalForm")
+);
+
 export default function BookmarksView() {
   const [searchParams] = useSearchParams();
   const activeFolder = searchParams.get("folder") || "root";
 
-  const {
-    bookmarkFormModal,
-    closeBookmarkModal,
-    setSelectedBookmark,
-    clearBookmarkSelection,
-  } = useAppStore();
+  const bookmarkFormModal = useAppStore((s) => s.bookmarkFormModal);
+  const closeBookmarkModal = useAppStore((s) => s.closeBookmarkModal);
+  const setSelectedId = useAppStore((s) => s.setSelectedBookmarkId);
+  const clearBookmarkSelection = useAppStore((s) => s.clearBookmarkSelection);
+
   useEffect(() => {
-    setSelectedBookmark(null);
+    setSelectedId(null);
     clearBookmarkSelection();
-  }, [activeFolder, setSelectedBookmark, clearBookmarkSelection]);
+  }, [activeFolder, setSelectedId, clearBookmarkSelection]);
 
   const createBookmark = useCreateBookmark();
   const updateBookmark = useUpdateBookmark();
 
   const handleFormSubmit = (data) => {
+    const done = { onSuccess: closeBookmarkModal };
     if (bookmarkFormModal.type === "edit") {
-      updateBookmark.mutate(
-        {
-          id: bookmarkFormModal.data.id,
-          data,
-        },
-        {
-          onSuccess: (updated) => {
-            closeBookmarkModal();
-            // Keep detail panel in sync with the updated data
-            if (updated) setSelectedBookmark(updated);
-          },
-        }
-      );
+      updateBookmark.mutate({ id: bookmarkFormModal.data.id, data }, done);
     } else {
-      createBookmark.mutate(data, {
-        onSuccess: () => closeBookmarkModal(),
-      });
+      createBookmark.mutate(data, done);
     }
   };
 
@@ -60,13 +49,15 @@ export default function BookmarksView() {
       <MoveBookmarkModal />
 
       {bookmarkFormModal.isOpen && (
-        <ModalForm
-          key={bookmarkFormModal.data?.id || "create"}
-          onClose={closeBookmarkModal}
-          onSubmit={handleFormSubmit}
-          initialData={bookmarkFormModal.data}
-          activeFolderId={activeFolder}
-        />
+        <Suspense fallback={null}>
+          <ModalForm
+            key={bookmarkFormModal.data?.id || "create"}
+            onClose={closeBookmarkModal}
+            onSubmit={handleFormSubmit}
+            initialData={bookmarkFormModal.data}
+            activeFolderId={activeFolder}
+          />
+        </Suspense>
       )}
     </>
   );

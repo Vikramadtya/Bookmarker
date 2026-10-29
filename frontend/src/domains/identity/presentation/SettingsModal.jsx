@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, User, Download, AlertTriangle } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/domains/identity/application/useAuth";
@@ -14,7 +14,8 @@ import DataTab from "@/domains/identity/presentation/DataTab";
 import DangerTab from "@/domains/identity/presentation/DangerTab";
 
 export default function SettingsModal() {
-  const { isSettingsModalOpen, setSettingsModalOpen } = useAppStore();
+  const isSettingsModalOpen = useAppStore((s) => s.isSettingsModalOpen);
+  const setSettingsModalOpen = useAppStore((s) => s.setSettingsModalOpen);
   const [activeTab, setActiveTab] = useState("account");
 
   const { data: userDetails, isLoading: isUserLoading } = useAuth();
@@ -30,14 +31,14 @@ export default function SettingsModal() {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState("");
 
-  if (!isSettingsModalOpen) return null;
-
   // Set initial username when user loads
   useEffect(() => {
     if (userDetails?.username && newUsername === "" && !isEditingUsername) {
       setNewUsername(userDetails.username);
     }
   }, [userDetails?.username, isEditingUsername, newUsername]);
+
+  if (!isSettingsModalOpen) return null;
 
   const handleImportClick = () => {
     fileInputRef.current?.click();

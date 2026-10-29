@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Folder, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useFolders } from "@/domains/folders/application/useFolders";
@@ -7,16 +7,14 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function MoveBookmarkModal() {
-  const { moveBookmarkModal, closeMoveModal } = useAppStore();
+  const moveBookmarkModal = useAppStore((s) => s.moveBookmarkModal);
+  const closeMoveModal = useAppStore((s) => s.closeMoveModal);
   const { data: folders = [] } = useFolders();
   const updateBookmark = useUpdateBookmark();
 
-  const handleMove = (targetFolderId) => {
+  const handleMove = (folderId) => {
     updateBookmark.mutate(
-      {
-        id: moveBookmarkModal.bookmark?.id,
-        data: { folderId: targetFolderId === "root" ? null : targetFolderId },
-      },
+      { id: moveBookmarkModal.bookmark?.id, data: { folderId } },
       {
         onSuccess: () => {
           toast.success("Bookmark moved successfully");
@@ -30,7 +28,7 @@ export default function MoveBookmarkModal() {
     <AnimatePresence>
       {moveBookmarkModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -38,7 +36,7 @@ export default function MoveBookmarkModal() {
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm dark:bg-slate-950/80"
           />
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -57,18 +55,6 @@ export default function MoveBookmarkModal() {
             </div>
 
             <div className="max-h-64 overflow-y-auto p-2">
-              <button
-                onClick={() => handleMove("root")}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
-                  moveBookmarkModal.bookmark?.folderId === null
-                    ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50"
-                )}
-              >
-                <Folder className="h-4 w-4" />
-                <span>Inbox (No Folder)</span>
-              </button>
               {folders.map((folder) => (
                 <button
                   key={folder.id}
@@ -85,7 +71,7 @@ export default function MoveBookmarkModal() {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         </div>
       )}
     </AnimatePresence>

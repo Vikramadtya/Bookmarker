@@ -1,18 +1,18 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { HydratedDocument } from 'mongoose';
+import { randomUUID } from 'node:crypto';
 
-export type UserDocument = User & Document;
+export type UserDocument = HydratedDocument<User>;
 
 @Schema({ timestamps: true })
 export class User {
-  @Prop({ type: String, default: uuidv4 })
+  @Prop({ type: String, default: randomUUID })
   _id: string;
 
-  @Prop({ type: String, required: true, unique: true, index: true })
+  @Prop({ type: String, required: true, unique: true })
   email: string;
 
-  @Prop({ type: String, required: true, unique: true, index: true })
+  @Prop({ type: String, required: true, unique: true })
   username: string;
 
   @Prop({ type: String })
@@ -23,13 +23,3 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-
-// Ensure virtuals are serialized
-UserSchema.set('toJSON', {
-  virtuals: true,
-  transform: (doc, ret: any) => {
-    ret.id = ret._id;
-    delete ret._id;
-    delete ret.__v;
-  },
-});

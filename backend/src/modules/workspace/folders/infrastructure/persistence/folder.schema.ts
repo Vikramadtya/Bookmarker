@@ -1,15 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
 export type FolderDocument = HydratedDocument<Folder>;
 
 @Schema({ timestamps: true, _id: false })
 export class Folder {
-  @Prop({ type: String, default: uuidv4 })
+  @Prop({ type: String, default: randomUUID })
   _id: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true, maxlength: 100 })
   name: string;
 
   @Prop({ type: String, required: true })
@@ -18,7 +18,7 @@ export class Folder {
   @Prop({ type: String, default: null })
   parentId: string;
 
-  @Prop({ type: String, required: true, index: true })
+  @Prop({ type: String, required: true })
   userId: string;
 
   @Prop({ type: Boolean, default: false })
@@ -30,18 +30,26 @@ export class Folder {
   @Prop({ type: Boolean, default: false })
   isLocked: boolean;
 
+  @Prop({ type: Boolean, default: false })
+  isInbox: boolean;
+
   @Prop({ type: String, default: null })
   passwordHash: string;
 }
 
 export const FolderSchema = SchemaFactory.createForClass(Folder);
 
-// Compound index for hierarchy queries (get all folders of a user, filter by parentId)
 FolderSchema.index({ userId: 1, parentId: 1 });
-
-FolderSchema.virtual('id').get(function (this: FolderDocument) {
-  return this._id;
-});
-
-FolderSchema.set('toJSON', { virtuals: true });
-FolderSchema.set('toObject', { virtuals: true });
+// Concurrent requests cannot create duplicate slugs or a second Inbox.
+FolderSchema.index(
+  { userId: 1, slug: 1 },
+  { unique: true, partialFilterExpression: { slug: { $type: 'string' } } },
+);
+FolderSchema.index(
+  { userId: 1 },
+  {
+    unique: true,
+    name: 'one_inbox_per_user',
+    partialFilterExpression: { isInbox: true },
+  },
+);

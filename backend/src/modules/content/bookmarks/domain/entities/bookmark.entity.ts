@@ -1,34 +1,22 @@
-export class Bookmark {
-  constructor(
-    public readonly id: string,
-    public readonly userId: string,
-    public title: string,
-    public readonly bookmarkURL: string,
-    public description: string,
-    public logoURL: string,
-    public tags: string[],
-    public isFavorite: boolean,
-    public folderId: string | null,
-    public author: string,
-    public comments: string[],
-    public content: string | null,
-    public isArticle: boolean,
-    public isDeadLink: boolean,
-    public lastCheckedAt: Date | null,
-  ) {}
+export type ScrapeStatus = 'pending' | 'done' | 'failed';
 
-  isScraped(): boolean {
-    return (
-      this.title !== 'Scraping...' &&
-      this.description !== 'Extracting metadata...'
-    );
-  }
-
-  markAsFavorite(): void {
-    this.isFavorite = true;
-  }
-
-  unmarkAsFavorite(): void {
-    this.isFavorite = false;
-  }
+export interface Bookmark {
+  id: string;
+  userId: string;
+  title: string;
+  bookmarkURL: string;
+  description: string;
+  logoURL: string;
+  tags: string[];
+  isFavorite: boolean;
+  folderId: string;
+  author: string;
+  comments: string[];
+  content: string | null;
+  isArticle: boolean;
+  isDeadLink: boolean;
+  lastCheckedAt: Date | null;
+  scrapeStatus: ScrapeStatus;
+  creationDate: Date;
+  updateDate: Date;
 }

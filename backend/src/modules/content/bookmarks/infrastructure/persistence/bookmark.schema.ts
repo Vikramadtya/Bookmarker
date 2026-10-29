@@ -1,30 +1,30 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
 export type BookmarkDocument = HydratedDocument<Bookmark>;
 
 @Schema({ timestamps: true, _id: false })
 export class Bookmark {
-  @Prop({ type: String, default: uuidv4 })
+  @Prop({ type: String, default: randomUUID })
   _id: string;
 
-  @Prop()
+  @Prop({ type: String, maxlength: 500 })
   title: string;
 
-  @Prop()
+  @Prop({ type: String, maxlength: 200 })
   author: string;
 
-  @Prop()
+  @Prop({ type: String, maxlength: 2048 })
   logoURL: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, maxlength: 2048 })
   bookmarkURL: string;
 
-  @Prop()
+  @Prop({ type: String, maxlength: 2000 })
   description: string;
 
-  @Prop()
+  @Prop({ type: String })
   content: string;
 
   @Prop({ type: Boolean, default: false })
@@ -35,6 +35,9 @@ export class Bookmark {
 
   @Prop({ type: Date, default: null })
   lastCheckedAt: Date;
+
+  @Prop({ type: String, enum: ['pending', 'done', 'failed'], default: 'done' })
+  scrapeStatus: string;
 
   @Prop({ type: [String], default: [] })
   tags: string[];
@@ -48,29 +51,16 @@ export class Bookmark {
   @Prop({ type: String, required: true })
   folderId: string;
 
-  @Prop({ type: String, required: true, index: true })
+  @Prop({ type: String, required: true })
   userId: string;
 }
 
 export const BookmarkSchema = SchemaFactory.createForClass(Bookmark);
 
-// Compound indexes for common query patterns
-BookmarkSchema.index({ userId: 1, folderId: 1 });
-BookmarkSchema.index({ userId: 1, isFavorite: 1 });
-BookmarkSchema.index({ userId: 1, createdAt: -1 });
-
-// Full-text search index
-BookmarkSchema.index({ title: 'text', description: 'text', content: 'text' });
-
-BookmarkSchema.virtual('id').get(function (this: BookmarkDocument) {
-  return this._id;
-});
-BookmarkSchema.virtual('creationDate').get(function (this: any) {
-  return this.createdAt;
-});
-BookmarkSchema.virtual('updateDate').get(function (this: any) {
-  return this.updatedAt;
-});
-
-BookmarkSchema.set('toJSON', { virtuals: true });
-BookmarkSchema.set('toObject', { virtuals: true });
+// Every list query is scoped by userId and sorted newest-first, so each index
+// ends in createdAt to serve the sort without an in-memory step.
+BookmarkSchema.index({ userId: 1, createdAt: -1, _id: -1 });
+BookmarkSchema.index({ userId: 1, folderId: 1, createdAt: -1, _id: -1 });
+BookmarkSchema.index({ userId: 1, isFavorite: 1, createdAt: -1, _id: -1 });
+// Dead-link sweep
+BookmarkSchema.index({ lastCheckedAt: 1 });

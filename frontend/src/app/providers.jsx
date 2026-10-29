@@ -1,128 +1,132 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { BASE_URL, BACKEND_URL } from "@/lib/metadata";
+import { domAnimation, LazyMotion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { ThemeProvider } from "next-themes";
+import { BACKEND_URL, SERVER_ORIGIN } from "@/lib/metadata";
+import { endSession, useAuth } from "@/domains/identity/application/useAuth";
+import { patchBookmark } from "@/domains/bookmarks/application/bookmarkCache";
+
+const WAKEUP_TOAST = "server-wakeup";
+
+const pill = (children) => (
+  <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[#334155] px-4 py-2 text-sm font-medium text-white shadow-lg">
+    {children}
+  </div>
+);
+
+/** Free-tier hosts sleep when idle: tell the user while the first request wakes the server. */
+function useServerWakeup() {
+  useEffect(() => {
+    let cancelled = false;
+    let retry;
+    let showing = false;
+
+    const slowTimer = setTimeout(() => {
+      showing = true;
+      toast.custom(
+        () =>
+          pill(
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+              Waiting for backend server to start. Give it a min to start...
+            </>
+          ),
+        { id: WAKEUP_TOAST, duration: Infinity, position: "top-center" }
+      );
+    }, 1000);
+
+    const ping = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/health`);
+        if (!res.ok) throw new Error("Not ready");
+        clearTimeout(slowTimer);
+        if (showing) {
+          toast.custom(() => pill("Backend server is ready!"), {
+            id: WAKEUP_TOAST,
+            duration: 3000,
+            position: "top-center",
+          });
+        }
+      } catch {
+        if (!cancelled) retry = setTimeout(ping, 3000);
+      }
+    };
+    ping();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(slowTimer);
+      clearTimeout(retry);
+      toast.dismiss(WAKEUP_TOAST);
+    };
+  }, []);
+}
+
+/** Applies live scrape results from the server straight into the query cache. */
+function RealtimeSync() {
+  const queryClient = useQueryClient();
+  const { data: user } = useAuth();
+  const signedIn = Boolean(user);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    // Authenticated by the httpOnly cookie sent with the handshake.
+    const socket = io(SERVER_ORIGIN, {
+      transports: ["websocket"],
+      withCredentials: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
+    socket.on("bookmarkUpdated", ({ bookmarkId, ...patch }) => {
+      patchBookmark(queryClient, bookmarkId, patch);
+    });
+    return () => socket.disconnect();
+  }, [signedIn, queryClient]);
+
+  return null;
+}
+
+function SessionExpiry() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const onUnauthorized = () => {
+      // Skip when already signed out, otherwise the auth probe's own 401 would loop.
+      if (queryClient.getQueryData(["auth-status"]) === null) return;
+      endSession(queryClient);
+    };
+    window.addEventListener("unauthorized", onUnauthorized);
+    return () => window.removeEventListener("unauthorized", onUnauthorized);
+  }, [queryClient]);
+  return null;
+}
 
 export default function Providers({ children }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: {
-            staleTime: 1000 * 60 * 5,
-            refetchOnWindowFocus: false,
-          },
+          queries: { staleTime: 5 * 60_000, refetchOnWindowFocus: false },
         },
       })
   );
-
-  useEffect(() => {
-    // 1. Wake up server on load (helpful for Render free-tier instances)
-    let isWaking = false;
-    const toastId = "server-wakeup";
-
-    const wakeTimeoutId = setTimeout(() => {
-      isWaking = true;
-      toast.custom(
-        (t) => (
-          <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[#334155] px-4 py-2 text-sm font-medium text-white shadow-lg">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
-            Waiting for backend server to start. Give it a min to start...
-          </div>
-        ),
-        {
-          id: toastId,
-          duration: Infinity, // Remains visible until dismissed
-          position: "top-center",
-        }
-      );
-    }, 1000); // Show if it takes longer than 1s
-
-    const pingServer = () => {
-      fetch(`${BACKEND_URL}/health`)
-        .then((res) => {
-          if (!res.ok) throw new Error("Not ready");
-          clearTimeout(wakeTimeoutId);
-          if (isWaking) {
-            toast.custom(
-              (t) => (
-                <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[#334155] px-4 py-2 text-sm font-medium text-white shadow-lg">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-3 w-3 text-white"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </div>
-                  Backend server is ready!
-                </div>
-              ),
-              {
-                id: toastId,
-                duration: 3000,
-                position: "top-center",
-              }
-            );
-          }
-        })
-        .catch(() => {
-          // Keep polling every 3 seconds if fetch fails (e.g., connection reset while Render wakes)
-          setTimeout(pingServer, 3000);
-        });
-    };
-
-    pingServer();
-
-    // 2. Setup WebSocket connection
-    // Get base domain from BASE_URL (assuming BASE_URL is http://localhost:8080/api/v1)
-    let socketUrl = "http://localhost:8080";
-    try {
-      const url = new URL(BASE_URL);
-      socketUrl = url.origin;
-    } catch (e) {}
-
-    const socket = io(socketUrl, {
-      // Skip HTTP long-polling handshake and connect directly via WebSocket.
-      // This eliminates the extra HTTP round-trip that happens by default.
-      transports: ["websocket"],
-      auth: { token: localStorage.getItem("bookmarker_token") },
-      // Retry up to 5 times with 2s delay before giving up silently.
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-    });
-
-    socket.on("bookmarkUpdated", (data) => {
-      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
-    });
-
-    const handleUnauthorized = () => {
-      localStorage.removeItem("bookmarker_token");
-      queryClient.clear();
-      queryClient.setQueryData(["auth-status"], null);
-    };
-    window.addEventListener("unauthorized", handleUnauthorized);
-
-    return () => {
-      socket.disconnect();
-      window.removeEventListener("unauthorized", handleUnauthorized);
-    };
-  }, [queryClient]);
+  useServerWakeup();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        {children}
-        <Toaster richColors position="top-right" />
-      </ThemeProvider>
+      <LazyMotion features={domAnimation}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <SessionExpiry />
+          <RealtimeSync />
+          {children}
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
+      </LazyMotion>
     </QueryClientProvider>
   );
 }

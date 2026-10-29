@@ -10,7 +10,8 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  UnauthorizedException,
+  ForbiddenException,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,11 +22,18 @@ import {
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import { FoldersService } from '../../application/services/folders.service';
+import { toFolderView } from '../../domain/entities/folder.entity';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { UpdateFolderDto } from './dto/update-folder.dto';
 import { CurrentUser } from '@core/common/decorators/current-user.decorator';
+
+enum DeleteAction {
+  DeleteBookmarks = 'delete_bookmarks',
+  MoveToInbox = 'move_to_inbox',
+}
 
 @ApiTags('folders')
 @ApiBearerAuth()
@@ -38,7 +46,7 @@ export class FoldersController {
   @ApiOperation({ summary: 'Get all folders' })
   @ApiResponse({ status: 200, description: 'Flat list of all folders' })
   async getAllFolders(@CurrentUser('email') userId: string) {
-    return this.foldersService.getAllFolders(userId);
+    return (await this.foldersService.getAllFolders(userId)).map(toFolderView);
   }
 
   @Post()
@@ -49,9 +57,9 @@ export class FoldersController {
   @ApiResponse({ status: 400, description: 'Validation error' })
   async createFolder(
     @CurrentUser('email') userId: string,
-    @Body() createFolderDto: CreateFolderDto,
+    @Body() dto: CreateFolderDto,
   ) {
-    return this.foldersService.createFolder(userId, createFolderDto);
+    return toFolderView(await this.foldersService.createFolder(userId, dto));
   }
 
   @Get(':id')
@@ -63,78 +71,75 @@ export class FoldersController {
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
   ) {
-    return this.foldersService.getFolderById(userId, id);
+    return toFolderView(await this.foldersService.getFolderById(userId, id));
   }
 
   @Get(':id/children')
   @ApiOperation({ summary: 'Get child folders of a collection' })
   @ApiParam({ name: 'id', description: 'Parent folder UUID' })
-  @ApiResponse({ status: 200, description: 'List of child folders' })
   async getFolderChildren(
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
   ) {
-    return this.foldersService.getChildren(userId, id);
+    return (await this.foldersService.getChildren(userId, id)).map(
+      toFolderView,
+    );
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Rename a folder' })
+  @ApiOperation({
+    summary: 'Update a folder (rename, visibility, lock, parent)',
+  })
   @ApiParam({ name: 'id', description: 'Folder UUID' })
   @ApiBody({ type: UpdateFolderDto })
-  @ApiResponse({ status: 200, description: 'Updated folder' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
   async updateFolder(
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
-    @Body() updateFolderDto: UpdateFolderDto,
+    @Body() dto: UpdateFolderDto,
   ) {
-    return this.foldersService.updateFolder(userId, id, updateFolderDto);
+    return toFolderView(
+      await this.foldersService.updateFolder(userId, id, dto),
+    );
   }
 
   @Post(':id/unlock')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Unlock a password-protected folder' })
   @ApiParam({ name: 'id', description: 'Folder UUID' })
   @ApiBody({
     schema: { type: 'object', properties: { password: { type: 'string' } } },
   })
   @ApiResponse({ status: 200, description: 'Unlock token returned' })
-  @ApiResponse({ status: 401, description: 'Invalid password' })
+  @ApiResponse({ status: 403, description: 'Invalid password' })
   async unlockFolder(
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
     @Body('password') password?: string,
   ) {
     const folder = await this.foldersService.getFolderById(userId, id);
-    const isValid = await this.foldersService.verifyPassword(id, password);
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid folder password');
+    if (!(await this.foldersService.verifyPassword(folder, password))) {
+      throw new ForbiddenException('Invalid folder password');
     }
-    return {
-      token: this.foldersService.generateUnlockToken(
-        folder.id,
-        folder.passwordHash as string,
-      ),
-    };
+    return { token: this.foldersService.generateUnlockToken(folder) };
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Delete a folder. Use action query param to handle its bookmarks.',
+    summary:
+      'Delete a folder and its sub-folders. Bookmarks move to the Inbox by default.',
   })
   @ApiParam({ name: 'id', description: 'Folder UUID' })
-  @ApiQuery({
-    name: 'action',
-    required: false,
-    enum: ['delete_bookmarks', 'move_to_inbox'],
-    description: 'What to do with bookmarks inside the folder',
-  })
+  @ApiQuery({ name: 'action', required: false, enum: DeleteAction })
   @ApiResponse({ status: 204, description: 'Folder deleted' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
   async deleteFolder(
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
-    @Query('action') action?: 'delete_bookmarks' | 'move_to_inbox',
+    @Query('action', new ParseEnumPipe(DeleteAction, { optional: true }))
+    action?: DeleteAction,
   ) {
     await this.foldersService.deleteFolder(userId, id, action);
   }

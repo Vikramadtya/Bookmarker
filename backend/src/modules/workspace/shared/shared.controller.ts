@@ -5,17 +5,18 @@ import {
   Body,
   Param,
   NotFoundException,
-  UnauthorizedException,
+  ForbiddenException,
+  HttpCode,
   Headers,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public } from '@core/common/decorators/public.decorator';
+import { Throttle } from '@nestjs/throttler';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
 import { BookmarksService } from '@content/bookmarks/application/services/bookmarks.service';
 import { UsersService } from '@identity/users/application/services/users.service';
 
+/** Public, unauthenticated read-only access to folders their owners have shared. */
 @ApiTags('shared')
-@Public() // All routes in this controller are publicly accessible — no JWT required
 @Controller('api/v1/shared')
 export class SharedController {
   constructor(
@@ -24,87 +25,59 @@ export class SharedController {
     private readonly usersService: UsersService,
   ) {}
 
+  /** Folder info plus its bookmarks; `bookmarks` is null while the folder is locked. */
   @Get(':username/:slug')
   async getPublicFolder(
     @Param('username') username: string,
     @Param('slug') slug: string,
+    @Headers('x-folder-token') folderToken?: string,
   ) {
-    const user = await this.usersService.findByUsername(username);
-    if (!user) throw new NotFoundException('User not found');
+    const folder = await this.resolveFolder(username, slug);
+    const unlocked =
+      !folder.isLocked ||
+      this.foldersService.verifyUnlockToken(folder, folderToken);
 
-    const folder = await this.foldersService.getPublicFolderBySlug(
-      user.email,
-      slug,
-    );
-    const {
-      passwordHash: _passwordHash,
-      userId: _userId,
-      ...safeFolder
-    } = folder;
-    return safeFolder;
+    const bookmarks = unlocked
+      ? (await this.bookmarksService.getAll(folder.userId, folder.id)).map(
+          (b) => ({
+            id: b.id,
+            title: b.title,
+            bookmarkURL: b.bookmarkURL,
+            description: b.description,
+            logoURL: b.logoURL,
+            tags: b.tags,
+            creationDate: b.creationDate,
+          }),
+        )
+      : null;
+
+    return {
+      id: folder.id,
+      name: folder.name,
+      slug: folder.slug,
+      isLocked: folder.isLocked,
+      bookmarks,
+    };
   }
 
   @Post(':username/:slug/unlock')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
   async unlockPublicFolder(
     @Param('username') username: string,
     @Param('slug') slug: string,
     @Body('password') password?: string,
   ) {
-    const user = await this.usersService.findByUsername(username);
-    if (!user) throw new NotFoundException('User not found');
-
-    const folder = await this.foldersService.getPublicFolderBySlug(
-      user.email,
-      slug,
-    );
-
-    const isValid = await this.foldersService.verifyPassword(
-      folder.id,
-      password,
-    );
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid folder password');
+    const folder = await this.resolveFolder(username, slug);
+    if (!(await this.foldersService.verifyPassword(folder, password))) {
+      throw new ForbiddenException('Invalid folder password');
     }
-
-    return {
-      token: this.foldersService.generateUnlockToken(
-        folder.id,
-        folder.passwordHash as string,
-      ),
-    };
+    return { token: this.foldersService.generateUnlockToken(folder) };
   }
 
-  @Get(':username/:slug/bookmarks')
-  async getPublicFolderBookmarks(
-    @Param('username') username: string,
-    @Param('slug') slug: string,
-    @Headers('x-folder-token') folderToken?: string,
-  ) {
+  private async resolveFolder(username: string, slug: string) {
     const user = await this.usersService.findByUsername(username);
-    if (!user) throw new NotFoundException('User not found');
-
-    const folder = await this.foldersService.getPublicFolderBySlug(
-      user.email,
-      slug,
-    );
-
-    if (folder.isLocked) {
-      const isValid =
-        folderToken &&
-        this.foldersService.verifyUnlockToken(
-          folder.id,
-          folder.passwordHash as string,
-          folderToken,
-        );
-      if (!isValid)
-        throw new UnauthorizedException(
-          'Folder is locked. Provide a valid x-folder-token header.',
-        );
-    }
-
-    return this.bookmarksService.getBookmarks(
-      user.email,
-      folder.id || folder.id.toString(),
-    );
+    if (!user) throw new NotFoundException('Folder not found');
+    return this.foldersService.getPublicFolderBySlug(user.email, slug);
   }
 }

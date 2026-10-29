@@ -1,17 +1,18 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Command } from "cmdk";
-import { Search, Folder, Bookmark, Globe } from "lucide-react";
+import { Search, Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useFolders } from "@/domains/folders/application/useFolders";
-import { useBookmarks } from "@/domains/bookmarks/application/useBookmarks";
+import { useBookmarkSearch } from "@/domains/bookmarks/application/useBookmarks";
+import { useDebounce } from "@/shared/hooks/useDebounce";
+import { Favicon } from "@/shared/ui/Favicon";
 
-export function CommandPalette() {
-  const [open, setOpen] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+const FIELDS = ["title", "description", "notes", "tags"];
 
-  // Advanced Search State
+/** Mounted only while open (see App), so it holds no state or listeners when closed. */
+export function CommandPalette({ onClose }) {
+  const [, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFolder, setSearchFolder] = useState("all");
   const [searchFields, setSearchFields] = useState({
@@ -22,79 +23,44 @@ export function CommandPalette() {
   });
 
   useEffect(() => {
-    const down = (e) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
-      }
-    };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
+    const onKeyDown = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const { data: folders = [] } = useFolders();
-  const { data: bookmarks = [] } = useBookmarks("root");
+  const query = searchQuery.trim();
+  const debouncedQuery = useDebounce(query, 250);
 
-  const setActiveFolder = (id) => {
+  // Bookmarks are searched on the server, so nothing is downloaded until the user types.
+  const { data: bookmarks = [] } = useBookmarkSearch({
+    q: debouncedQuery,
+    folderId: searchFolder === "all" ? undefined : searchFolder,
+    fields: FIELDS.filter((field) => searchFields[field]),
+    enabled: true,
+  });
+
+  const openFolder = (id) => {
     setSearchParams((prev) => {
       prev.set("folder", id);
       return prev;
     });
-    setOpen(false);
+    onClose();
   };
 
-  const query = searchQuery.toLowerCase().trim();
-
   const filteredFolders = useMemo(() => {
-    if (!open) return [];
-    return folders.filter((folder) => {
-      if (searchFolder !== "all") return false;
-      if (!query) return true;
-      return folder.name.toLowerCase().includes(query);
-    });
-  }, [open, folders, searchFolder, query]);
-
-  const filteredBookmarks = useMemo(() => {
-    if (!open) return [];
-    return bookmarks.filter((bookmark) => {
-      if (searchFolder !== "all" && bookmark.folderId !== searchFolder)
-        return false;
-      if (!query) return true;
-
-      if (searchFields.title && bookmark.title?.toLowerCase().includes(query))
-        return true;
-      if (
-        searchFields.title &&
-        bookmark.bookmarkURL?.toLowerCase().includes(query)
-      )
-        return true;
-      if (
-        searchFields.description &&
-        bookmark.description?.toLowerCase().includes(query)
-      )
-        return true;
-      if (
-        searchFields.tags &&
-        bookmark.tags?.some((t) => t.toLowerCase().includes(query))
-      )
-        return true;
-      if (
-        searchFields.notes &&
-        bookmark.comments?.some((c) => c.toLowerCase().includes(query))
-      )
-        return true;
-
-      return false;
-    });
-  }, [open, bookmarks, searchFolder, query, searchFields]);
-
-  if (!open) return null;
+    if (searchFolder !== "all") return [];
+    const needle = query.toLowerCase();
+    return folders.filter(
+      (folder) => !needle || folder.name.toLowerCase().includes(needle)
+    );
+  }, [folders, searchFolder, query]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh] sm:px-0">
       <div
         className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] dark:bg-slate-950/60"
-        onClick={() => setOpen(false)}
+        onClick={onClose}
       />
       <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
         <Command
@@ -132,7 +98,7 @@ export function CommandPalette() {
             <span className="hidden text-xs font-medium text-slate-500 sm:block">
               Search in:
             </span>
-            {["title", "description", "notes", "tags"].map((field) => (
+            {FIELDS.map((field) => (
               <button
                 key={field}
                 type="button"
@@ -155,7 +121,7 @@ export function CommandPalette() {
           </div>
 
           <Command.List className="no-scrollbar max-h-[300px] overflow-x-hidden overflow-y-auto p-2">
-            {filteredFolders.length === 0 && filteredBookmarks.length === 0 && (
+            {filteredFolders.length === 0 && bookmarks.length === 0 && (
               <div className="py-6 text-center text-sm text-slate-500">
                 No results found.
               </div>
@@ -170,7 +136,7 @@ export function CommandPalette() {
                   <Command.Item
                     key={folder.id}
                     value={folder.id}
-                    onSelect={() => setActiveFolder(folder.id)}
+                    onSelect={() => openFolder(folder.id)}
                     className="flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm transition-colors data-[selected=true]:bg-blue-50 data-[selected=true]:text-blue-700 dark:data-[selected=true]:bg-blue-900/20 dark:data-[selected=true]:text-blue-300"
                   >
                     <Folder className="mr-3 h-4 w-4 stroke-[1.5]" />
@@ -180,18 +146,22 @@ export function CommandPalette() {
               </Command.Group>
             )}
 
-            {filteredBookmarks.length > 0 && (
+            {bookmarks.length > 0 && (
               <Command.Group
                 heading="Bookmarks"
                 className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400"
               >
-                {filteredBookmarks.map((bookmark) => (
+                {bookmarks.map((bookmark) => (
                   <CommandPaletteBookmarkItem
                     key={bookmark.id}
                     bookmark={bookmark}
                     onSelect={() => {
-                      window.open(bookmark.bookmarkURL, "_blank");
-                      setOpen(false);
+                      window.open(
+                        bookmark.bookmarkURL,
+                        "_blank",
+                        "noopener,noreferrer"
+                      );
+                      onClose();
                     }}
                   />
                 ))}
@@ -226,24 +196,17 @@ export function CommandPalette() {
 }
 
 function CommandPaletteBookmarkItem({ bookmark, onSelect }) {
-  const [imageError, setImageError] = useState(false);
-
   return (
     <Command.Item
       value={bookmark.id}
       onSelect={onSelect}
       className="flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm transition-colors data-[selected=true]:bg-slate-100 dark:data-[selected=true]:bg-slate-800"
     >
-      {bookmark.logoURL && !imageError ? (
-        <img
-          src={bookmark.logoURL}
-          alt=""
-          className="mr-3 h-5 w-5 shrink-0 rounded border border-slate-100 bg-white object-contain p-0.5 dark:border-slate-700 dark:bg-slate-800"
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        <Globe className="mr-3 h-4 w-4 shrink-0 stroke-[1.5] text-slate-400" />
-      )}
+      <Favicon
+        src={bookmark.logoURL}
+        className="mr-3 h-5 w-5 p-0.5"
+        iconClassName="h-3.5 w-3.5"
+      />
       <div className="flex min-w-0 flex-col">
         <span className="truncate leading-tight font-medium text-slate-700 dark:text-slate-200">
           {bookmark.title || bookmark.bookmarkURL}

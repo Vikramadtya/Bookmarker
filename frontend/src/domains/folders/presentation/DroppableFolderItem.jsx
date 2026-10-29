@@ -2,7 +2,7 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Folder, Layers, Lock, EyeOff, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUpdateFolder } from "@/domains/folders/application/useFolders";
+import { hasFolderToken } from "@/lib/folderTokens";
 
 export default function DroppableFolderItem({
   folder,
@@ -20,7 +20,6 @@ export default function DroppableFolderItem({
     id: folder.id,
     data: { type: "folder" },
   });
-  const updateFolder = useUpdateFolder();
 
   return (
     <div
@@ -36,10 +35,7 @@ export default function DroppableFolderItem({
           : ""
       )}
       onClick={() => {
-        const tokens = JSON.parse(
-          sessionStorage.getItem("folder_tokens") || "{}"
-        );
-        if (folder.isLocked && !tokens[folder.id]) {
+        if (folder.isLocked && !hasFolderToken(folder.id)) {
           onUnlockPrompt?.(folder);
           return;
         }
@@ -53,7 +49,7 @@ export default function DroppableFolderItem({
           isTopLevel ? "gap-3" : "gap-2"
         )}
       >
-        {isTopLevel && folder.name !== "Inbox" ? (
+        {isTopLevel && !folder.isInbox ? (
           <Layers
             className={cn(
               "h-4 w-4 shrink-0 stroke-[1.5] transition-colors",
@@ -86,7 +82,7 @@ export default function DroppableFolderItem({
           </span>
         )}
       </div>
-      {!compact && folder.isPublic && folder.name !== "Inbox" && (
+      {!compact && folder.isPublic && !folder.isInbox && (
         <Globe
           className="mr-1 h-3.5 w-3.5 shrink-0 cursor-pointer text-blue-500 transition-colors hover:text-blue-600"
           onClick={(e) => {

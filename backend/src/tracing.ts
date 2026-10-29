@@ -53,13 +53,11 @@ if (enableObservability) {
     console.error('Error initializing OpenTelemetry', error);
   }
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
+  // Nest's shutdown hooks handle SIGTERM; only flush telemetry here.
+  process.once('SIGTERM', () => {
     sdk
       ?.shutdown()
-      .then(() => console.log('OpenTelemetry shut down'))
-      .catch((error) => console.log('Error shutting down OTel', error))
-      .finally(() => process.exit(0));
+      .catch((error) => console.error('Error shutting down OTel', error));
   });
 }
 

@@ -1,10 +1,4 @@
-import {
-  IsArray,
-  ArrayNotEmpty,
-  ArrayMaxSize,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsArray, ArrayNotEmpty, ArrayMaxSize, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BulkMoveDto {
@@ -16,7 +10,7 @@ export class BulkMoveDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(500)
-  @IsString({ each: true })
+  @IsUUID('all', { each: true })
   ids: string[];
 
   @ApiProperty({ description: 'Target folder ID' })

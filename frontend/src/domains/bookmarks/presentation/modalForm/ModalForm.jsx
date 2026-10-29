@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { X, Link2, Sparkles, Loader2, Type } from "lucide-react";
 import * as z from "zod";
 import { useFolders } from "@/domains/folders/application/useFolders";
@@ -40,8 +40,8 @@ const ModalForm = ({
   const { data: globalTags = [] } = useTags();
 
   const subFolders = folders.filter((f) => f.parentId);
-  const collections = folders.filter((f) => !f.parentId && f.name !== "Inbox");
-  const inbox = folders.find((f) => !f.parentId && f.name === "Inbox");
+  const collections = folders.filter((f) => !f.parentId && !f.isInbox);
+  const inbox = folders.find((f) => f.isInbox);
 
   const parsedActiveId = activeFolderId ? activeFolderId.split(",")[0] : null;
   const defaultFolderId = initialData?.folderId
@@ -55,6 +55,7 @@ const ModalForm = ({
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(formSchema),
@@ -67,6 +68,13 @@ const ModalForm = ({
       comments: initialData?.comments || [],
     },
   });
+
+  // Once folders async-load, patch the folderId if it's still blank
+  useEffect(() => {
+    if (defaultFolderId && !watch("folderId")) {
+      setValue("folderId", defaultFolderId);
+    }
+  }, [defaultFolderId, setValue, watch]);
 
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
 
@@ -83,9 +91,20 @@ const ModalForm = ({
         : [];
       await onSubmit({
         bookmarkURL: data.bookmarkURL,
-        title: data.title?.trim() || undefined,
-        comments: data.comments?.length > 0 ? data.comments : undefined,
-        tags: parsedTags.length > 0 ? parsedTags : undefined,
+        // On edit an empty value must be sent so tags/notes/title can be cleared.
+        title: isEdit
+          ? (data.title ?? "").trim()
+          : data.title?.trim() || undefined,
+        comments: isEdit
+          ? (data.comments ?? [])
+          : data.comments?.length > 0
+            ? data.comments
+            : undefined,
+        tags: isEdit
+          ? parsedTags
+          : parsedTags.length > 0
+            ? parsedTags
+            : undefined,
         folderId: data.folderId,
       });
     } catch (err) {
@@ -139,12 +158,7 @@ const ModalForm = ({
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500/20"
                       : "border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 dark:border-slate-700"
                   )}
-                  value={watch("bookmarkURL") || ""}
-                  onChange={(e) =>
-                    setValue("bookmarkURL", e.target.value, {
-                      shouldValidate: true,
-                    })
-                  }
+                  {...register("bookmarkURL")}
                   disabled={isSubmitting}
                 />
               </div>
@@ -230,7 +244,7 @@ const ModalForm = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || (subFolders.length === 0 && !inbox)}
+              disabled={isSubmitting || folders.length === 0}
               className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 active:scale-[0.98] disabled:opacity-70 disabled:hover:bg-blue-600"
             >
               {isSubmitting ? (

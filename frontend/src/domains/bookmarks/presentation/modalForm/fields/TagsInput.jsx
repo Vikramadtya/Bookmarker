@@ -11,6 +11,7 @@ export default function TagsInput({
   currentTags,
 }) {
   const tagsContainerRef = useRef(null);
+  const { onChange: rhfOnChange, ...restRegister } = register("tags");
 
   return (
     <div>
@@ -28,12 +29,16 @@ export default function TagsInput({
           id="tags"
           placeholder="design, inspiration, tools"
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 transition-all outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-900 dark:focus:ring-blue-500/20"
-          {...register("tags")}
+          {...restRegister}
           onChange={(e) => {
-            register("tags").onChange(e);
+            rhfOnChange(e);
             setShowTagSuggestions(true);
           }}
           onFocus={() => setShowTagSuggestions(true)}
+          onBlur={() =>
+            // Delay so suggestion button click fires before dropdown hides
+            setTimeout(() => setShowTagSuggestions(false), 150)
+          }
           disabled={isSubmitting}
         />
 
@@ -66,10 +71,12 @@ export default function TagsInput({
                 <button
                   key={tag}
                   type="button"
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    // Use onMouseDown so it fires before onBlur closes the dropdown
+                    e.preventDefault();
                     const newTags =
                       [...currentTagsArr.slice(0, -1), tag].join(", ") + ", ";
-                    setValue("tags", newTags);
+                    setValue("tags", newTags, { shouldValidate: true });
                     setShowTagSuggestions(false);
                     document.getElementById("tags").focus();
                   }}

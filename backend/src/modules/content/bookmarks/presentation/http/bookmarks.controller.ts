@@ -9,29 +9,30 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  UseInterceptors,
   UseGuards,
   Headers,
-  UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiQuery,
   ApiParam,
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { AuthGuard } from '@nestjs/passport';
 import { BookmarksService } from '../../application/services/bookmarks.service';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
 import { UpdateBookmarkDto } from './dto/update-bookmark.dto';
+import { ListBookmarksDto } from './dto/list-bookmarks.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
 import { BulkMoveDto } from './dto/bulk-move.dto';
 import { CurrentUser } from '@core/common/decorators/current-user.decorator';
+
+const UUID_LIST = /^[0-9a-fA-F-]{36}(,[0-9a-fA-F-]{36})*$/;
+const MAX_FOLDER_IDS = 50;
 
 @ApiTags('bookmarks')
 @ApiBearerAuth()
@@ -45,66 +46,37 @@ export class BookmarksController {
 
   @Get()
   @ApiOperation({
-    summary: 'List bookmarks with optional folder, search, and field filters',
+    summary:
+      'List bookmarks (newest first, cursor-paginated) with optional folder, tag and search filters',
   })
-  @ApiQuery({
-    name: 'folderId',
-    required: false,
-    description: 'Filter by folder ID, "root", or "favorites"',
-  })
-  @ApiQuery({
-    name: 'q',
-    required: false,
-    description: 'Full-text search query',
-  })
-  @ApiQuery({
-    name: 'fields',
-    required: false,
-    description:
-      'Comma-separated fields to search within (e.g. title,description,tags)',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'List of bookmarks matching the criteria',
-  })
-  async getBookmarks(
+  @ApiResponse({ status: 200, description: '{ items, nextCursor }' })
+  async list(
     @CurrentUser('email') userId: string,
+    @Query() query: ListBookmarksDto,
     @Headers('x-folder-token') folderToken?: string,
-    @Query('folderId') folderId?: string,
-    @Query('q') q?: string,
-    @Query('fields') fields?: string,
   ) {
-    await this.assertFolderAccess(userId, folderId, folderToken);
-    return this.bookmarksService.getBookmarks(userId, folderId, q, fields);
+    await this.assertFolderAccess(userId, query.folderId, folderToken);
+    return this.bookmarksService.listBookmarks(userId, query);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
-      'Create a new bookmark (auto-scrapes metadata if title/description/logo missing)',
+      'Create a bookmark (metadata is scraped in the background if title/description/logo are missing)',
   })
   @ApiBody({ type: CreateBookmarkDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Bookmark created. Metadata scraping queued if needed.',
-  })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  async createBookmark(
+  async create(
     @CurrentUser('email') userId: string,
-    @Body() createBookmarkDto: CreateBookmarkDto,
+    @Body() dto: CreateBookmarkDto,
   ) {
-    return this.bookmarksService.createBookmark(userId, createBookmarkDto);
+    await this.foldersService.getFolderById(userId, dto.folderId);
+    return this.bookmarksService.createBookmark(userId, dto);
   }
 
   @Get('tags')
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(300000)
-  @ApiOperation({
-    summary: 'Get all unique tags across all bookmarks (cached 5 min)',
-  })
-  @ApiResponse({ status: 200, description: 'Array of unique tag strings' })
-  async getTags(@CurrentUser('email') userId: string) {
+  @ApiOperation({ summary: 'Get all unique tags across all bookmarks' })
+  getTags(@CurrentUser('email') userId: string) {
     return this.bookmarksService.getTags(userId);
   }
 
@@ -112,8 +84,6 @@ export class BookmarksController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Permanently delete up to 500 bookmarks by ID' })
   @ApiBody({ type: BulkDeleteDto })
-  @ApiResponse({ status: 204, description: 'Bookmarks deleted' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
   async bulkDelete(
     @CurrentUser('email') userId: string,
     @Body() body: BulkDeleteDto,
@@ -125,106 +95,63 @@ export class BookmarksController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Move up to 500 bookmarks to a target folder' })
   @ApiBody({ type: BulkMoveDto })
-  @ApiResponse({ status: 204, description: 'Bookmarks moved' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
   async bulkMove(
     @CurrentUser('email') userId: string,
     @Body() body: BulkMoveDto,
   ) {
-    if (
-      body.folderId &&
-      body.folderId !== 'root' &&
-      body.folderId !== 'favorites'
-    ) {
-      await this.foldersService.getFolderById(userId, body.folderId);
-    }
+    await this.foldersService.getFolderById(userId, body.folderId);
     await this.bookmarksService.bulkMove(userId, body.ids, body.folderId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single bookmark by ID' })
   @ApiParam({ name: 'id', description: 'Bookmark UUID' })
-  @ApiResponse({ status: 200, description: 'The bookmark' })
   @ApiResponse({ status: 404, description: 'Bookmark not found' })
-  async getBookmarkById(
-    @CurrentUser('email') userId: string,
-    @Param('id') id: string,
-  ) {
+  getById(@CurrentUser('email') userId: string, @Param('id') id: string) {
     return this.bookmarksService.getBookmarkById(userId, id);
   }
 
   @Put(':id')
-  @ApiOperation({
-    summary:
-      'Update a bookmark (supports partial updates including isFavorite toggle)',
-  })
+  @ApiOperation({ summary: 'Update a bookmark (partial updates supported)' })
   @ApiParam({ name: 'id', description: 'Bookmark UUID' })
   @ApiBody({ type: UpdateBookmarkDto })
-  @ApiResponse({ status: 200, description: 'Updated bookmark' })
   @ApiResponse({ status: 404, description: 'Bookmark not found' })
-  async updateBookmark(
+  async update(
     @CurrentUser('email') userId: string,
     @Param('id') id: string,
-    @Body() updateBookmarkDto: UpdateBookmarkDto,
+    @Body() dto: UpdateBookmarkDto,
   ) {
-    return this.bookmarksService.updateBookmark(userId, id, updateBookmarkDto);
+    if (dto.folderId)
+      await this.foldersService.getFolderById(userId, dto.folderId);
+    return this.bookmarksService.updateBookmark(userId, id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a bookmark by ID' })
   @ApiParam({ name: 'id', description: 'Bookmark UUID' })
-  @ApiResponse({ status: 204, description: 'Bookmark deleted' })
-  @ApiResponse({ status: 404, description: 'Bookmark not found' })
-  async deleteBookmark(
-    @CurrentUser('email') userId: string,
-    @Param('id') id: string,
-  ) {
+  async remove(@CurrentUser('email') userId: string, @Param('id') id: string) {
     await this.bookmarksService.deleteBookmark(userId, id);
   }
 
-  // ─── Private Helpers ───────────────────────────────────────────────────────
-
   /**
-   * Validates that the caller has access to every locked folder referenced
-   * by folderId (which may be a comma-separated list for collection views).
-   * Throws UnauthorizedException if any folder is locked and the token is
-   * missing or invalid.
+   * Every folder named in `folderId` (one id, or a comma-separated list for
+   * collection views) must belong to the caller, and locked ones need a valid token.
    */
   private async assertFolderAccess(
     userId: string,
     folderId?: string,
     folderToken?: string,
-  ): Promise<void> {
-    if (!folderId || folderId === 'root' || folderId === 'favorites') return;
+  ) {
+    if (!folderId || !UUID_LIST.test(folderId)) return;
 
-    const isUUIDList = /^[0-9a-fA-F-]{36}(,[0-9a-fA-F-]{36})*$/.test(folderId);
-    if (!isUUIDList) return;
-
-    const ids = folderId.split(',').slice(0, 50); // BUG-12 Max cap
-    for (const id of ids) {
-      const folder = await this.foldersService.getFolderByIdUnscoped(id);
-      if (!folder) continue;
-      // BUG-03: IDOR fix - folder must belong to user or be public/unlocked (but shared routes don't use this controller)
-      // Actually, if a user is trying to access a folder, it MUST belong to them for this endpoint since it returns scoped bookmarks anyway.
-      // But we shouldn't let them probe lock status of other's folders.
+    const ids = [...new Set(folderId.split(',').slice(0, MAX_FOLDER_IDS))];
+    const folders = await this.foldersService.getFoldersByIds(ids);
+    for (const folder of folders) {
+      // Same response for "not yours" and "does not exist" so lock status can't be probed.
       if (folder.userId !== userId)
-        throw new UnauthorizedException('Folder not found or access denied');
-      if (!folder.isLocked) continue;
-
-      const tokenValid =
-        folderToken &&
-        this.foldersService.verifyUnlockToken(
-          folder.id,
-          folder.passwordHash as string,
-          folderToken,
-        );
-
-      if (!tokenValid) {
-        throw new UnauthorizedException(
-          'Folder is locked. Provide a valid x-folder-token header.',
-        );
-      }
+        throw new NotFoundException('Folder not found');
+      this.foldersService.assertUnlocked(folder, folderToken);
     }
   }
 }

@@ -1,55 +1,40 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { makeApiRequest } from "@/lib/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { makeApiRequest } from "@/lib/api";
 import { BASE_URL } from "@/lib/metadata";
-import { Bookmark, Folder, Globe, Loader2, Lock } from "lucide-react";
+import { getFolderToken, setFolderToken } from "@/lib/folderTokens";
+import { Bookmark, Folder, Loader2, Lock } from "lucide-react";
 import dayjs from "@/lib/dayjs";
+import { Favicon } from "@/shared/ui/Favicon";
 import { useState } from "react";
 
 export default function PublicCollectionView() {
   const { username, slug } = useParams();
+  const queryClient = useQueryClient();
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlockError, setUnlockError] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [hasToken, setHasToken] = useState(() => {
-    try {
-      const tokens = JSON.parse(
-        sessionStorage.getItem("folder_tokens") || "{}"
-      );
-      return !!tokens[slug];
-    } catch {
-      return false;
-    }
-  });
 
+  const queryKey = ["shared-folder", username, slug];
+  // One request returns the folder and, unless it is locked, its bookmarks.
   const {
     data: folder,
     isLoading: isFolderLoading,
     error: folderError,
   } = useQuery({
-    queryKey: ["shared-folder", username, slug],
+    queryKey,
     queryFn: () =>
       makeApiRequest({
         url: `${BASE_URL}/shared/${username}/${slug}`,
-        method: "GET",
-        name: "Fetch Shared Folder",
+        headers: getFolderToken(slug)
+          ? { "x-folder-token": getFolderToken(slug) }
+          : undefined,
+        meta: { silent: true },
       }),
+    retry: false,
   });
 
-  const {
-    data: bookmarks,
-    isLoading: isBookmarksLoading,
-    refetch: refetchBookmarks,
-  } = useQuery({
-    queryKey: ["shared-bookmarks", username, slug],
-    queryFn: () =>
-      makeApiRequest({
-        url: `${BASE_URL}/shared/${username}/${slug}/bookmarks`,
-        method: "GET",
-        name: "Fetch Shared Bookmarks",
-      }),
-    enabled: !!folder && (!folder.isLocked || hasToken),
-  });
+  const bookmarks = folder?.bookmarks;
 
   if (isFolderLoading) {
     return (
@@ -102,7 +87,7 @@ export default function PublicCollectionView() {
           </div>
         </div>
 
-        {folder.isLocked && !hasToken ? (
+        {bookmarks === null ? (
           <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
@@ -128,17 +113,10 @@ export default function PublicCollectionView() {
                     url: `${BASE_URL}/shared/${username}/${slug}/unlock`,
                     method: "POST",
                     body: { password: unlockPassword },
+                    meta: { silent: true },
                   });
-                  const tokens = JSON.parse(
-                    sessionStorage.getItem("folder_tokens") || "{}"
-                  );
-                  tokens[slug] = data.token; // Store with slug for public view
-                  sessionStorage.setItem(
-                    "folder_tokens",
-                    JSON.stringify(tokens)
-                  );
-                  setHasToken(true);
-                  refetchBookmarks();
+                  setFolderToken(slug, data.token);
+                  await queryClient.invalidateQueries({ queryKey });
                 } catch (err) {
                   setUnlockError("Invalid password. Please try again.");
                 } finally {
@@ -171,11 +149,7 @@ export default function PublicCollectionView() {
         ) : (
           <>
             {/* Bookmarks Grid */}
-            {isBookmarksLoading ? (
-              <div className="flex justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-              </div>
-            ) : bookmarks?.length === 0 ? (
+            {bookmarks?.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
                 <Bookmark className="mb-4 h-12 w-12 stroke-[1.5] text-slate-300 dark:text-slate-700" />
                 <p>This collection is empty.</p>
@@ -192,23 +166,11 @@ export default function PublicCollectionView() {
                   >
                     <div className="p-5">
                       <div className="mb-4 flex items-center justify-between">
-                        {b.logoURL ? (
-                          <img
-                            src={b.logoURL}
-                            alt=""
-                            className="h-10 w-10 rounded-lg border border-slate-100 bg-white object-contain p-1 dark:border-slate-700 dark:bg-slate-800"
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "flex";
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-                          style={{ display: b.logoURL ? "none" : "flex" }}
-                        >
-                          <Globe className="h-5 w-5 text-slate-400" />
-                        </div>
+                        <Favicon
+                          src={b.logoURL}
+                          className="h-10 w-10"
+                          iconClassName="h-5 w-5"
+                        />
                       </div>
                       <h3 className="mb-2 line-clamp-2 text-base leading-snug font-bold text-slate-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
                         {b.title}

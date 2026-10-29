@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hasFolderToken } from "@/lib/folderTokens";
 import DroppableFolderItem from "./DroppableFolderItem";
 
 export default function CollectionItem({
@@ -41,10 +42,7 @@ export default function CollectionItem({
             : "text-slate-600 hover:bg-slate-200/30 dark:text-slate-400 dark:hover:bg-slate-800/30"
         )}
         onClick={() => {
-          const tokens = JSON.parse(
-            sessionStorage.getItem("folder_tokens") || "{}"
-          );
-          if (collection.isLocked && !tokens[collection.id]) {
+          if (collection.isLocked && !hasFolderToken(collection.id)) {
             setUnlockFolderInfo(collection);
             return;
           }

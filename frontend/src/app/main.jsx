@@ -1,5 +1,3 @@
-import "../tracing";
-
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -8,15 +6,9 @@ import "./index.css";
 import Providers from "./providers.jsx";
 import { ErrorBoundary } from "@/shared/ui/ErrorBoundary.jsx";
 
-// Synchronously capture token from URL before React boots up
-if (typeof window !== "undefined") {
-  const url = new URL(window.location.href);
-  const token = url.searchParams.get("token");
-  if (token) {
-    localStorage.setItem("bookmarker_token", token);
-    url.searchParams.delete("token");
-    window.history.replaceState({}, document.title, url.toString());
-  }
+// OpenTelemetry (and its zone.js dependency) is only downloaded when enabled.
+if (import.meta.env.VITE_ENABLE_OBSERVABILITY === "true") {
+  import("../tracing");
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(

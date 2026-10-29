@@ -1,12 +1,35 @@
-import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import type { Agenda, Job } from 'agenda';
 import * as cheerio from 'cheerio';
-import sanitizeHtml from 'sanitize-html';
-import { IBookmarkRepository } from '../../domain/repositories/bookmark.repository.interface';
-import { EventsGateway } from '@content/events/events.gateway';
-import puppeteer from 'puppeteer';
+import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
-import { JSDOM } from 'jsdom';
-import { Agenda, Job } from 'agenda';
+import sanitizeHtml from 'sanitize-html';
+import {
+  IBookmarkRepository,
+  ScrapeResult,
+} from '../../domain/repositories/bookmark.repository.interface';
+import { EventsGateway } from '@content/events/events.gateway';
+import { safeRequest } from '@core/security/url-safety';
+import { mapLimit } from '@core/common/async';
+
+interface ScrapeTarget {
+  bookmarkId: string;
+  url: string;
+}
+
+interface Metadata {
+  title: string;
+  description: string;
+  logoURL: string;
+  content: string;
+  isArticle: boolean;
+}
+
+const BATCH_CONCURRENCY = 4;
+const MAX_ARTICLE_CHARS = 500_000;
+
+const faviconFor = (url: string) =>
+  `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`;
 
 @Injectable()
 export class ScrapeService implements OnModuleInit {
@@ -16,227 +39,148 @@ export class ScrapeService implements OnModuleInit {
     @Inject('IBookmarkRepository')
     private readonly bookmarksRepository: IBookmarkRepository,
     private readonly eventsGateway: EventsGateway,
-    @Inject('AGENDA') private agenda: Agenda,
+    @Inject('AGENDA') private readonly agenda: Agenda,
   ) {}
 
   onModuleInit() {
-    // Limit to 2 concurrent scrape jobs to avoid overwhelming the server
-    // under a burst of new bookmarks.
     this.agenda.define(
       'scrape-metadata',
-      async (job: Job<{ bookmarkId: string; url: string; userId: string }>) => {
-        await this.process(job.attrs.data);
+      async (job: Job<ScrapeTarget & { userId: string }>) => {
+        await this.scrape(job.attrs.data.userId, job.attrs.data);
       },
       { concurrency: 2 },
     );
+
+    this.agenda.define(
+      'scrape-batch',
+      async (job: Job<{ userId: string; items: ScrapeTarget[] }>) => {
+        const { userId, items } = job.attrs.data;
+        await mapLimit(items, BATCH_CONCURRENCY, (item) =>
+          this.scrape(userId, item),
+        );
+      },
+      { concurrency: 1, lockLifetime: 30 * 60 * 1000 },
+    );
   }
 
-  private async process({
-    bookmarkId,
-    url,
-    userId,
-  }: {
-    bookmarkId: string;
-    url: string;
-    userId: string;
-  }): Promise<void> {
+  /** Never throws: a failed scrape is recorded on the bookmark instead of retried forever. */
+  private async scrape(
+    userId: string,
+    { bookmarkId, url }: ScrapeTarget,
+  ): Promise<void> {
+    let result: ScrapeResult;
     try {
-      const existing = await this.bookmarksRepository.findOne({
-        _id: bookmarkId,
-      });
-      if (!existing) {
-        this.logger.warn(`Bookmark ${bookmarkId} not found during scrape.`);
-        return;
-      }
+      const meta = await this.extractMetadata(url);
+      result = { ...meta, scrapeStatus: 'done' };
+    } catch (error) {
+      this.logger.warn(`Scrape failed for ${url}: ${(error as Error).message}`);
+      result = {
+        title: this.hostnameOf(url),
+        logoURL: this.safe(() => faviconFor(url)),
+        scrapeStatus: 'failed',
+      };
+    }
 
-      const metadata = await this.extractMetadata(url);
-      const { title, description, logoURL, content, isArticle } = metadata;
-
-      // Only overwrite title/description if they are the default placeholder values
-      const newTitle =
-        existing.title === 'Scraping...' ? title || 'Untitled' : existing.title;
-      const newDesc =
-        existing.description === 'Extracting metadata...'
-          ? description
-          : existing.description;
-      const newLogo = existing.logoURL || logoURL;
-
-      const updated = await this.bookmarksRepository.updateById(bookmarkId, {
-        title: newTitle,
-        description: newDesc,
-        logoURL: newLogo,
-        content: content || '',
-        isArticle: isArticle || false,
-      });
-
+    try {
+      const updated = await this.bookmarksRepository.applyScrapeResult(
+        bookmarkId,
+        result,
+      );
       if (updated) {
-        this.logger.log(
-          `Scraped metadata for bookmark ${bookmarkId}: "${title}"`,
-        );
         this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
           title: updated.title,
           description: updated.description,
           logoURL: updated.logoURL,
+          isArticle: updated.isArticle,
+          scrapeStatus: updated.scrapeStatus,
         });
       }
-    } catch (error: any) {
-      this.logger.error(
-        `Scrape job failed for ${url}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-
-      const existing = await this.bookmarksRepository.findOne({
-        _id: bookmarkId,
-      });
-      if (!existing) return;
-
-      // Derive a readable fallback title from the URL without an extra DB round-trip.
-      let fallbackTitle: string;
-      try {
-        fallbackTitle = new URL(url).hostname;
-      } catch {
-        fallbackTitle = 'Unknown Site';
-      }
-
-      const finalTitle =
-        existing.title === 'Scraping...' ? fallbackTitle : existing.title;
-      const finalDesc =
-        existing.description === 'Extracting metadata...'
-          ? 'Could not extract metadata — check the URL is accessible.'
-          : existing.description;
-
-      await this.bookmarksRepository.updateById(bookmarkId, {
-        title: finalTitle,
-        description: finalDesc,
-      });
-
-      this.eventsGateway.emitBookmarkUpdated(userId, bookmarkId, {
-        title: finalTitle,
-        description: finalDesc,
-        error: 'scrape_failed',
-      });
-    }
-  }
-
-  // ─── Metadata Extraction ──────────────────────────────────────────────────
-
-  private async extractMetadata(url: string): Promise<{
-    title: string;
-    description: string;
-    logoURL: string;
-    content?: string;
-    isArticle?: boolean;
-  }> {
-    // Fast path: plain HTTP fetch + Cheerio (no JS execution)
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (response.ok) {
-        const html = await response.text();
-        return this.parseHtml(html, url);
-      }
-    } catch {
-      this.logger.warn(`Fetch failed for ${url}, falling back to Puppeteer`);
-    }
-
-    // Slow path: Puppeteer for JS-rendered pages
-    try {
-      return await this.scrapeWithPuppeteer(url);
     } catch (error) {
-      this.logger.error(`Puppeteer failed for ${url}: ${error.message}`);
-      // Ultimate fallback if both fetch and Puppeteer fail
-      return {
-        title: '',
-        description: '',
-        logoURL: `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
-        content: '',
-        isArticle: false,
-      };
+      this.logger.error(
+        `Could not save scrape result for ${bookmarkId}`,
+        (error as Error).stack,
+      );
     }
   }
 
-  private parseHtml(
-    html: string,
-    baseUrl: string,
-  ): {
-    title: string;
-    description: string;
-    logoURL: string;
-    content?: string;
-    isArticle?: boolean;
-  } {
+  private async extractMetadata(url: string): Promise<Metadata> {
+    const response = await safeRequest(url, {
+      timeoutMs: 8000,
+      maxBytes: 2_000_000,
+    });
+    if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
+    return this.parseHtml(response.body, response.url);
+  }
+
+  private parseHtml(html: string, baseUrl: string): Metadata {
     const $ = cheerio.load(html);
+    const text = (value: string | undefined) =>
+      sanitizeHtml((value ?? '').trim(), { allowedTags: [] }).slice(0, 500);
+
     const title =
-      $('meta[property="og:title"]').attr('content') || $('title').text() || '';
+      $('meta[property="og:title"]').attr('content') ||
+      $('title').first().text();
     const description =
       $('meta[property="og:description"]').attr('content') ||
-      $('meta[name="description"]').attr('content') ||
-      '';
-    let logoURL =
+      $('meta[name="description"]').attr('content');
+    const logo =
       $('meta[property="og:image"]').attr('content') ||
       $('link[rel="apple-touch-icon"]').attr('href') ||
       $('link[rel="icon"]').attr('href') ||
-      $('link[rel="shortcut icon"]').attr('href') ||
-      `https://www.google.com/s2/favicons?domain=${new URL(baseUrl).hostname}&sz=128`;
+      $('link[rel="shortcut icon"]').attr('href');
 
-    logoURL = this.resolveUrl(logoURL, baseUrl);
-
-    let articleContent = '';
-    let isArticle = false;
-    try {
-      const doc = new JSDOM(html, { url: baseUrl });
-      const reader = new Readability(doc.window.document);
-      const article = reader.parse();
-      if (article && article.content) {
-        articleContent = sanitizeHtml(article.content, {
-          allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-            'img',
-            'h1',
-            'h2',
-          ]),
-        });
-        isArticle = true;
-      }
-    } catch (err) {
-      this.logger.warn(
-        `Failed to parse Readability for ${baseUrl}: ${err.message}`,
-      );
-    }
-
+    const article = this.extractArticle(html);
     return {
-      title: sanitizeHtml(title.trim(), { allowedTags: [] }),
-      description: sanitizeHtml(description.trim(), { allowedTags: [] }),
-      logoURL,
-      content: articleContent,
-      isArticle,
+      title: text(title),
+      description: text(description).slice(0, 2000),
+      logoURL:
+        this.resolveHttpUrl(logo, baseUrl) ||
+        this.safe(() => faviconFor(baseUrl)),
+      content: article,
+      isArticle: article.length > 0,
     };
   }
 
-  private async scrapeWithPuppeteer(url: string): Promise<{
-    title: string;
-    description: string;
-    logoURL: string;
-    content?: string;
-    isArticle?: boolean;
-  }> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    });
+  private extractArticle(html: string): string {
     try {
-      const page = await browser.newPage();
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-      const html = await page.content();
-      return this.parseHtml(html, url);
-    } finally {
-      await browser.close();
+      const { document } = parseHTML(html);
+      const parsed = new Readability(document as unknown as Document).parse();
+      if (!parsed?.content) return '';
+
+      const clean = sanitizeHtml(parsed.content, {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+          'img',
+          'h1',
+          'h2',
+        ]),
+        allowedSchemes: ['http', 'https', 'mailto'],
+      });
+      return clean.length <= MAX_ARTICLE_CHARS ? clean : '';
+    } catch (error) {
+      this.logger.debug(`Readability failed: ${(error as Error).message}`);
+      return '';
     }
   }
 
-  private resolveUrl(logoURL: string, baseUrl: string): string {
-    if (!logoURL || logoURL.startsWith('http') || logoURL.startsWith('data:'))
-      return logoURL;
+  private resolveHttpUrl(href: string | undefined, baseUrl: string): string {
+    if (!href) return '';
     try {
-      return new URL(logoURL, new URL(baseUrl).origin).toString();
+      const resolved = new URL(href, baseUrl);
+      return resolved.protocol === 'http:' || resolved.protocol === 'https:'
+        ? resolved.toString().slice(0, 2048)
+        : '';
+    } catch {
+      return '';
+    }
+  }
+
+  private hostnameOf(url: string): string {
+    return this.safe(() => new URL(url).hostname) || 'Unknown Site';
+  }
+
+  private safe(fn: () => string): string {
+    try {
+      return fn();
     } catch {
       return '';
     }

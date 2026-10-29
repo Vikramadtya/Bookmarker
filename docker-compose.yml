@@ -1,21 +1,19 @@
-version: "3.8"
-
 services:
   mongodb:
-    image: mongo:latest
+    image: mongo:7
     container_name: bookmarker_mongodb
-    restart: always
+    restart: unless-stopped
+    # Bound to localhost only: this instance has no authentication.
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
-
-  redis:
-    image: redis:alpine
-    container_name: bookmarker_redis
-    restart: always
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mongodb_data:

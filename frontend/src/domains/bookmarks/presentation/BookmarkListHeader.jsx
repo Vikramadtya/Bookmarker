@@ -1,20 +1,22 @@
-import React from "react";
 import { Plus, Search, LayoutGrid, List as ListIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/store/useAppStore";
+import { useTags } from "@/domains/bookmarks/application/useBookmarks";
 
 export default function BookmarkListHeader({
-  openBookmarkModal,
-  searchQuery,
-  setSearchQuery,
   folderName,
-  searchFields,
-  toggleSearchField,
   selectedTag,
   setSelectedTag,
-  rawBookmarks,
-  viewMode,
-  setViewMode,
 }) {
+  const openBookmarkModal = useAppStore((s) => s.openBookmarkModal);
+  const searchQuery = useAppStore((s) => s.searchQuery);
+  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
+  const searchFields = useAppStore((s) => s.searchFields);
+  const toggleSearchField = useAppStore((s) => s.toggleSearchField);
+  const viewMode = useAppStore((s) => s.viewMode);
+  const setViewMode = useAppStore((s) => s.setViewMode);
+  const { data: tags = [] } = useTags();
+
   return (
     <>
       <div className="z-10 flex items-center justify-between p-4 pb-2">
@@ -67,13 +69,11 @@ export default function BookmarkListHeader({
             className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-600 uppercase outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
           >
             <option value="">ALL TAGS</option>
-            {Array.from(new Set(rawBookmarks.flatMap((b) => b.tags || []))).map(
-              (tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              )
-            )}
+            {tags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
           </select>
 
           <button
