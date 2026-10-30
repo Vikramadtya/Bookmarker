@@ -1,4 +1,4 @@
-import { Plus, Search, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Menu, Plus, Search, LayoutGrid, List as ListIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { useTags } from "@/domains/bookmarks/application/useBookmarks";
@@ -9,6 +9,7 @@ export default function BookmarkListHeader({
   setSelectedTag,
 }) {
   const openBookmarkModal = useAppStore((s) => s.openBookmarkModal);
+  const setMobileNavOpen = useAppStore((s) => s.setMobileNavOpen);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
   const searchFields = useAppStore((s) => s.searchFields);
@@ -20,12 +21,21 @@ export default function BookmarkListHeader({
   return (
     <>
       <div className="z-10 flex items-center justify-between p-4 pb-2">
-        <h2 className="text-lg font-semibold tracking-wide text-slate-800 dark:text-slate-200">
-          Bookmarks
-        </h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open folders"
+            className="-ml-1 rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200/60 md:hidden dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            <Menu className="h-5 w-5 stroke-[1.5]" />
+          </button>
+          <h2 className="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-200">
+            {folderName}
+          </h2>
+        </div>
         <button
           onClick={() => openBookmarkModal("add")}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+          className="shadow-soft flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:bg-blue-500 active:scale-95"
         >
           <Plus className="h-4 w-4 stroke-[1.5]" />
           <span>New</span>
@@ -36,6 +46,7 @@ export default function BookmarkListHeader({
         <div className="group relative">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 stroke-[1.5] text-slate-400 transition-colors group-focus-within:text-blue-500" />
           <input
+            id="bookmark-search"
             type="text"
             placeholder={`Search in ${folderName}...`}
             value={searchQuery}

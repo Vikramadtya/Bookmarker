@@ -1,13 +1,15 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, SearchX } from "lucide-react";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppStore } from "@/store/useAppStore";
 import {
   useBookmarks,
-  useDeleteBookmark,
   useUpdateBookmark,
 } from "@/domains/bookmarks/application/useBookmarks";
+import { useUndoableDelete } from "@/domains/bookmarks/application/useUndoableDelete";
+import { BookmarkListSkeleton } from "@/shared/ui/Skeleton";
+import { EmptyState } from "@/shared/ui/EmptyState";
 import { useFolders } from "@/domains/folders/application/useFolders";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
@@ -28,6 +30,10 @@ export default function BookmarkList({ activeFolder }) {
   const toggleBookmarkSelection = useAppStore((s) => s.toggleBookmarkSelection);
   const viewMode = useAppStore((s) => s.viewMode);
   const setViewMode = useAppStore((s) => s.setViewMode);
+  const pendingDeletes = useAppStore((s) => s.pendingDeletes);
+  const openBookmarkModal = useAppStore((s) => s.openBookmarkModal);
+  const openMoveModal = useAppStore((s) => s.openMoveModal);
+  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
@@ -47,7 +53,7 @@ export default function BookmarkList({ activeFolder }) {
   );
 
   const {
-    data: bookmarks = [],
+    data: loadedBookmarks = [],
     isLoading,
     hasNextPage,
     isFetchingNextPage,
@@ -59,9 +65,17 @@ export default function BookmarkList({ activeFolder }) {
     tag: selectedTag,
   });
 
+  // Bookmarks inside their undo window are already gone from the UI.
+  const bookmarks = useMemo(
+    () =>
+      pendingDeletes.size
+        ? loadedBookmarks.filter((b) => !pendingDeletes.has(b.id))
+        : loadedBookmarks,
+    [loadedBookmarks, pendingDeletes]
+  );
+
   const { mutate: updateBookmark } = useUpdateBookmark();
-  const deleteBookmark = useDeleteBookmark();
-  const [bookmarkToDelete, setBookmarkToDelete] = useState(null);
+  const scheduleDelete = useUndoableDelete();
 
   // Folder id -> "Parent / Child", built once instead of per row.
   const breadcrumbs = useMemo(() => {
@@ -90,20 +104,13 @@ export default function BookmarkList({ activeFolder }) {
     [updateBookmark]
   );
 
-  const handleDeleteClick = useCallback((e, id) => {
-    e.stopPropagation();
-    setBookmarkToDelete(id);
-  }, []);
-
-  const confirmDelete = () => {
-    if (!bookmarkToDelete) return;
-    deleteBookmark.mutate(bookmarkToDelete, {
-      onSuccess: () => {
-        if (selectedId === bookmarkToDelete) setSelectedId(null);
-      },
-      onSettled: () => setBookmarkToDelete(null),
-    });
-  };
+  const handleDeleteClick = useCallback(
+    (e, id) => {
+      e.stopPropagation();
+      scheduleDelete([id]);
+    },
+    [scheduleDelete]
+  );
 
   const firstFolderId = activeFolder.split(",")[0];
   const folderName =
@@ -121,6 +128,74 @@ export default function BookmarkList({ activeFolder }) {
     overscan: 10,
   });
 
+  // ── Keyboard navigation ────────────────────────────────────────────────────
+  const selected = bookmarks.find((b) => b.id === selectedId);
+
+  const moveSelection = (delta) => {
+    if (bookmarks.length === 0) return;
+    const current = bookmarks.findIndex((b) => b.id === selectedId);
+    const next = Math.min(
+      bookmarks.length - 1,
+      Math.max(
+        0,
+        current === -1
+          ? delta > 0
+            ? 0
+            : bookmarks.length - 1
+          : current + delta
+      )
+    );
+    setSelectedId(bookmarks[next].id);
+    if (viewMode === "list") {
+      virtualizer.scrollToIndex(next, { align: "auto" });
+    } else {
+      scrollRef.current
+        ?.querySelector(`[data-bookmark-id="${bookmarks[next].id}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
+  };
+
+  useHotkeys("j, down", () => moveSelection(1), { preventDefault: true }, [
+    bookmarks,
+    selectedId,
+    viewMode,
+  ]);
+  useHotkeys("k, up", () => moveSelection(-1), { preventDefault: true }, [
+    bookmarks,
+    selectedId,
+    viewMode,
+  ]);
+  useHotkeys("n", () => openBookmarkModal("add"), { preventDefault: true });
+  useHotkeys("/", () => document.getElementById("bookmark-search")?.focus(), {
+    preventDefault: true,
+  });
+  useHotkeys("e", () => selected && openBookmarkModal("edit", selected), [
+    selected,
+  ]);
+  useHotkeys("m", () => selected && openMoveModal(selected), [selected]);
+  useHotkeys(
+    "f",
+    () =>
+      selected &&
+      updateBookmark({
+        id: selected.id,
+        data: { isFavorite: !selected.isFavorite },
+      }),
+    [selected]
+  );
+  useHotkeys("x", () => selected && toggleBookmarkSelection(selected.id), [
+    selected,
+  ]);
+  useHotkeys("d", () => selected && scheduleDelete([selected.id]), [
+    selected,
+    scheduleDelete,
+  ]);
+  useHotkeys(
+    "o",
+    () => selected && window.open(selected.bookmarkURL, "_blank", "noopener"),
+    [selected]
+  );
+
   // Load the next page when the end of the list scrolls into view.
   const sentinelRef = useRef(null);
   useEffect(() => {
@@ -136,7 +211,7 @@ export default function BookmarkList({ activeFolder }) {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, bookmarks.length]);
 
-  const renderBookmark = (b, virtualItem) => (
+  const renderBookmark = (b, virtualItem, index) => (
     <DraggableBookmark
       key={b.id}
       b={b}
@@ -144,6 +219,7 @@ export default function BookmarkList({ activeFolder }) {
       isSelected={selectedBookmarks.has(b.id)}
       breadcrumb={breadcrumbs.get(b.folderId) ?? null}
       virtualItem={virtualItem}
+      index={index}
       viewMode={viewMode}
       onSelect={setSelectedId}
       onToggleSelect={handleToggleSelect}
@@ -153,7 +229,7 @@ export default function BookmarkList({ activeFolder }) {
   );
 
   return (
-    <div className="relative flex w-1/3 flex-col border-r border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950">
+    <div className="relative flex w-full flex-col border-r border-slate-200 bg-slate-50/60 md:w-1/3 dark:border-slate-800 dark:bg-slate-950">
       <BookmarkListHeader
         folderName={folderName}
         selectedTag={selectedTag}
@@ -165,20 +241,50 @@ export default function BookmarkList({ activeFolder }) {
         className="no-scrollbar flex-1 overflow-y-auto px-4 py-4"
       >
         {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-16 w-full animate-pulse rounded-xl bg-slate-200/50 dark:bg-slate-800/50"
-              />
-            ))}
-          </div>
+          <BookmarkListSkeleton viewMode={viewMode} />
         ) : bookmarks.length === 0 ? (
-          <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50">
-            <p className="text-sm">
-              {searchQuery ? "No matching bookmarks" : "No bookmarks yet"}
-            </p>
-          </div>
+          searchQuery || selectedTag ? (
+            <EmptyState
+              title={
+                searchQuery ? "No matching bookmarks" : "Nothing with this tag"
+              }
+              description="Try different words, or widen the search fields above."
+              action={
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedTag("");
+                  }}
+                  className="shadow-soft flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  <SearchX className="h-3.5 w-3.5" />
+                  Clear filters
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title={
+                activeFolder === "favorites"
+                  ? "No favorites yet"
+                  : "Nothing saved here yet"
+              }
+              description={
+                activeFolder === "favorites"
+                  ? "Star a bookmark and it will show up here."
+                  : "Save your first link, or drag one in from another folder."
+              }
+              action={
+                <button
+                  onClick={() => openBookmarkModal("add")}
+                  className="shadow-soft flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white transition-all hover:bg-blue-500 active:scale-95"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add bookmark
+                </button>
+              }
+            />
+          )
         ) : viewMode === "grid" ? (
           <div
             className="grid w-full gap-4"
@@ -186,7 +292,7 @@ export default function BookmarkList({ activeFolder }) {
               gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
             }}
           >
-            {bookmarks.map((b) => renderBookmark(b, null))}
+            {bookmarks.map((b, i) => renderBookmark(b, null, i))}
           </div>
         ) : (
           <div
@@ -198,7 +304,7 @@ export default function BookmarkList({ activeFolder }) {
           >
             {virtualizer.getVirtualItems().map((item) => {
               const b = bookmarks[item.index];
-              return b ? renderBookmark(b, item) : null;
+              return b ? renderBookmark(b, item, item.index) : null;
             })}
           </div>
         )}
@@ -211,38 +317,6 @@ export default function BookmarkList({ activeFolder }) {
       </div>
 
       <BookmarkBulkActions />
-
-      {bookmarkToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Delete Bookmark
-            </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Are you sure you want to delete this bookmark? This action cannot
-              be undone.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setBookmarkToDelete(null)}
-                className="flex-1 rounded-lg bg-slate-200 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300 focus:outline-none dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600 focus:outline-none disabled:opacity-50"
-                disabled={deleteBookmark.isPending}
-              >
-                {deleteBookmark.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

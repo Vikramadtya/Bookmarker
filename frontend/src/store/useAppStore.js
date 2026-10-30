@@ -68,6 +68,19 @@ export const useAppStore = create(
       clearBookmarkSelection: () =>
         set({ selectedBookmarks: new Set() }, false, "clearBookmarkSelection"),
 
+      // Bookmarks deleted but still inside their undo window; lists hide them.
+      pendingDeletes: new Set(),
+      setPendingDeletes: (ids) =>
+        set({ pendingDeletes: ids }, false, "setPendingDeletes"),
+
+      isMobileNavOpen: false,
+      setMobileNavOpen: (isOpen) =>
+        set({ isMobileNavOpen: isOpen }, false, "setMobileNavOpen"),
+
+      isShortcutsOpen: false,
+      setShortcutsOpen: (isOpen) =>
+        set({ isShortcutsOpen: isOpen }, false, "setShortcutsOpen"),
+
       searchQuery: "",
       setSearchQuery: (query) =>
         set({ searchQuery: query }, false, "setSearchQuery"),

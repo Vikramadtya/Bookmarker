@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import {
   useCreateBookmark,
@@ -19,6 +20,7 @@ export default function BookmarksView() {
 
   const bookmarkFormModal = useAppStore((s) => s.bookmarkFormModal);
   const closeBookmarkModal = useAppStore((s) => s.closeBookmarkModal);
+  const selectedId = useAppStore((s) => s.selectedBookmarkId);
   const setSelectedId = useAppStore((s) => s.setSelectedBookmarkId);
   const clearBookmarkSelection = useAppStore((s) => s.clearBookmarkSelection);
 
@@ -42,7 +44,15 @@ export default function BookmarksView() {
   return (
     <>
       <BookmarkList activeFolder={activeFolder} />
-      <div className="flex-1 bg-white dark:bg-slate-950">
+      {/* Below md the detail panel takes over the whole screen once a bookmark is open. */}
+      <div
+        className={cn(
+          "flex-1 bg-white md:block dark:bg-slate-950",
+          selectedId
+            ? "fixed inset-0 z-30 overflow-y-auto md:static md:z-auto"
+            : "hidden"
+        )}
+      >
         <BookmarkDetail />
       </div>
 

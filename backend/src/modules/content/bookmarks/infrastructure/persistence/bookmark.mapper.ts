@@ -9,6 +9,7 @@ export class BookmarkMapper {
       bookmarkURL: doc.bookmarkURL,
       description: doc.description ?? '',
       logoURL: doc.logoURL ?? '',
+      imageURL: doc.imageURL ?? '',
       tags: doc.tags ?? [],
       isFavorite: !!doc.isFavorite,
       folderId: doc.folderId,

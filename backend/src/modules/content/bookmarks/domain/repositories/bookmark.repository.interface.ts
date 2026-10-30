@@ -8,6 +8,7 @@ export interface ScrapeResult {
   title?: string;
   description?: string;
   logoURL?: string;
+  imageURL?: string;
   content?: string;
   isArticle?: boolean;
   scrapeStatus: ScrapeStatus;

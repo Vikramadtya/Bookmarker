@@ -45,6 +45,7 @@ export class SharedController {
             bookmarkURL: b.bookmarkURL,
             description: b.description,
             logoURL: b.logoURL,
+            imageURL: b.imageURL,
             tags: b.tags,
             creationDate: b.creationDate,
           }),

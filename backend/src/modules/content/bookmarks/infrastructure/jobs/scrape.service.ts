@@ -21,6 +21,7 @@ interface Metadata {
   title: string;
   description: string;
   logoURL: string;
+  imageURL: string;
   content: string;
   isArticle: boolean;
 }
@@ -91,6 +92,7 @@ export class ScrapeService implements OnModuleInit {
           title: updated.title,
           description: updated.description,
           logoURL: updated.logoURL,
+          imageURL: updated.imageURL,
           isArticle: updated.isArticle,
           scrapeStatus: updated.scrapeStatus,
         });
@@ -123,8 +125,15 @@ export class ScrapeService implements OnModuleInit {
     const description =
       $('meta[property="og:description"]').attr('content') ||
       $('meta[name="description"]').attr('content');
-    const logo =
+    // The preview image is kept apart from the site icon: cards show the image
+    // as a thumbnail and the icon as a small badge.
+    // Sites use property= or name= interchangeably for these tags.
+    const image =
       $('meta[property="og:image"]').attr('content') ||
+      $('meta[name="og:image"]').attr('content') ||
+      $('meta[name="twitter:image"]').attr('content') ||
+      $('meta[property="twitter:image"]').attr('content');
+    const logo =
       $('link[rel="apple-touch-icon"]').attr('href') ||
       $('link[rel="icon"]').attr('href') ||
       $('link[rel="shortcut icon"]').attr('href');
@@ -136,6 +145,7 @@ export class ScrapeService implements OnModuleInit {
       logoURL:
         this.resolveHttpUrl(logo, baseUrl) ||
         this.safe(() => faviconFor(baseUrl)),
+      imageURL: this.resolveHttpUrl(image, baseUrl),
       content: article,
       isArticle: article.length > 0,
     };

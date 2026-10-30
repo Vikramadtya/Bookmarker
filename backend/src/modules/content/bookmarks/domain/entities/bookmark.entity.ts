@@ -7,6 +7,7 @@ export interface Bookmark {
   bookmarkURL: string;
   description: string;
   logoURL: string;
+  imageURL: string;
   tags: string[];
   isFavorite: boolean;
   folderId: string;

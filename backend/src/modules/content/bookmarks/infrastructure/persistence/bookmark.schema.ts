@@ -18,6 +18,9 @@ export class Bookmark {
   @Prop({ type: String, maxlength: 2048 })
   logoURL: string;
 
+  @Prop({ type: String, maxlength: 2048 })
+  imageURL: string;
+
   @Prop({ required: true, maxlength: 2048 })
   bookmarkURL: string;
 

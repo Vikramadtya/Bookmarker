@@ -10,6 +10,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import FolderSidebar from "@/domains/folders/presentation/FolderSideBar";
 import BookmarksView from "@/domains/bookmarks/presentation/BookmarksView";
+import ShortcutsDialog from "@/domains/bookmarks/presentation/ShortcutsDialog";
 import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
 import { useAuth } from "@/domains/identity/application/useAuth";
 import { useAppStore } from "@/store/useAppStore";
@@ -66,9 +67,10 @@ function Workspace() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex h-screen overflow-hidden bg-white font-sans text-slate-900 transition-colors duration-200 selection:bg-blue-500/30 dark:bg-slate-950 dark:text-slate-100">
+      <div className="flex h-screen overflow-hidden bg-white font-sans text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100">
         <FolderSidebar />
         <BookmarksView />
+        <ShortcutsDialog />
         <Suspense fallback={null}>
           {isPaletteOpen && <CommandPalette onClose={closePalette} />}
           {isSettingsOpen && <SettingsModal />}

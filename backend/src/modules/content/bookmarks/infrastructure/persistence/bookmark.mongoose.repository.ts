@@ -141,6 +141,7 @@ export class BookmarksMongooseRepository implements IBookmarkRepository {
               title: fillIfEmpty('title', result.title),
               description: fillIfEmpty('description', result.description),
               logoURL: fillIfEmpty('logoURL', result.logoURL),
+              imageURL: fillIfEmpty('imageURL', result.imageURL),
               content: result.content
                 ? { $literal: result.content }
                 : '$content',

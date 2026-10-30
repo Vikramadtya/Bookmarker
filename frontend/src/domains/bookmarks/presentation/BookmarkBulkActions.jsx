@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
-import { FolderOutput, Loader2, Trash2, Plus } from "lucide-react";
+import { FolderOutput, Trash2, Plus } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useFolders } from "@/domains/folders/application/useFolders";
-import {
-  useBulkDeleteBookmarks,
-  useBulkMoveBookmarks,
-} from "@/domains/bookmarks/application/useBookmarks";
+import { useBulkMoveBookmarks } from "@/domains/bookmarks/application/useBookmarks";
+import { useUndoableDelete } from "@/domains/bookmarks/application/useUndoableDelete";
 
 export default function BookmarkBulkActions() {
   const selectedBookmarks = useAppStore((s) => s.selectedBookmarks);
   const clearSelection = useAppStore((s) => s.clearBookmarkSelection);
   const { data: folders = [] } = useFolders();
   const bulkMove = useBulkMoveBookmarks();
-  const bulkDelete = useBulkDeleteBookmarks();
+  const scheduleDelete = useUndoableDelete();
   const [showMoveMenu, setShowMoveMenu] = useState(false);
 
   const ids = () => Array.from(selectedBookmarks);
@@ -77,17 +75,13 @@ export default function BookmarkBulkActions() {
             </AnimatePresence>
 
             <button
-              onClick={() =>
-                bulkDelete.mutate(ids(), { onSuccess: clearSelection })
-              }
-              disabled={bulkDelete.isPending}
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 disabled:opacity-50 dark:hover:bg-slate-700"
+              onClick={() => {
+                scheduleDelete(ids());
+                clearSelection();
+              }}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 dark:hover:bg-slate-700"
             >
-              {bulkDelete.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
+              <Trash2 className="h-4 w-4" />
               Delete
             </button>
           </div>
