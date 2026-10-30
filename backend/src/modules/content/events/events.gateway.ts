@@ -52,11 +52,18 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private readonly jwt: JwtService) {}
 
   async handleConnection(client: Socket) {
-    const token = readCookie(client.handshake.headers.cookie, AUTH_COOKIE);
+    const cookie = readCookie(client.handshake.headers.cookie, AUTH_COOKIE);
+    const handshakeToken = client.handshake.auth?.token;
     try {
-      if (!token) throw new Error('missing auth cookie');
-      const { email } = await this.jwt.verifyAsync<{ email?: string }>(token);
+      const token = cookie || handshakeToken;
+      if (!token) throw new Error('missing auth token');
+      const { email, purpose } = await this.jwt.verifyAsync<{
+        email?: string;
+        purpose?: string;
+      }>(token);
       if (!email) throw new Error('no email in token');
+      // A handshake token must be the short-lived socket one, not a session JWT.
+      if (!cookie && purpose !== 'socket') throw new Error('wrong token type');
       await client.join(email);
     } catch (err) {
       this.logger.warn(

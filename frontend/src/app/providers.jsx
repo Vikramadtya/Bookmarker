@@ -8,7 +8,8 @@ import { io } from "socket.io-client";
 import { domAnimation, LazyMotion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { ThemeProvider } from "next-themes";
-import { SERVER_ORIGIN } from "@/lib/metadata";
+import { makeApiRequest } from "@/lib/api";
+import { AUTH_URL, SOCKET_URL } from "@/lib/metadata";
 import { endSession, useAuth } from "@/domains/identity/application/useAuth";
 import { patchBookmark } from "@/domains/bookmarks/application/bookmarkCache";
 
@@ -43,8 +44,12 @@ function useServerWakeup() {
 
     const ping = async () => {
       try {
-        const res = await fetch(`${SERVER_ORIGIN}/health`);
-        if (!res.ok) throw new Error("Not ready");
+        // Any non-5xx answer (even a 401) means the server is awake. Not
+        // /health: some content blockers filter that path name.
+        const res = await fetch(`${AUTH_URL}/status`, {
+          credentials: "include",
+        });
+        if (res.status >= 500) throw new Error("Not ready");
         clearTimeout(slowTimer);
         if (showing) {
           toast.custom(() => pill("Backend server is ready!"), {
@@ -76,10 +81,18 @@ function RealtimeSync() {
 
   useEffect(() => {
     if (!signedIn) return;
-    // Authenticated by the httpOnly cookie sent with the handshake.
-    const socket = io(SERVER_ORIGIN, {
+    // The socket may live on another site than the page, where the httpOnly
+    // cookie is not sent, so authenticate with a short-lived token instead.
+    const socket = io(SOCKET_URL, {
       transports: ["websocket"],
       withCredentials: true,
+      auth: (done) =>
+        makeApiRequest({
+          url: `${AUTH_URL}/socket-token`,
+          meta: { silent: true },
+        })
+          .then(({ token }) => done({ token }))
+          .catch(() => done({})),
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
     });
