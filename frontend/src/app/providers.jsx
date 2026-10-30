@@ -8,7 +8,7 @@ import { io } from "socket.io-client";
 import { domAnimation, LazyMotion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { ThemeProvider } from "next-themes";
-import { SERVER_ORIGIN } from "@/lib/metadata";
+import { AUTH_URL, SERVER_ORIGIN } from "@/lib/metadata";
 import { endSession, useAuth } from "@/domains/identity/application/useAuth";
 import { patchBookmark } from "@/domains/bookmarks/application/bookmarkCache";
 
@@ -43,8 +43,12 @@ function useServerWakeup() {
 
     const ping = async () => {
       try {
-        const res = await fetch(`${SERVER_ORIGIN}/health`);
-        if (!res.ok) throw new Error("Not ready");
+        // Any non-5xx answer (even a 401) means the server is awake. Not
+        // /health: some content blockers filter that path name.
+        const res = await fetch(`${AUTH_URL}/status`, {
+          credentials: "include",
+        });
+        if (res.status >= 500) throw new Error("Not ready");
         clearTimeout(slowTimer);
         if (showing) {
           toast.custom(() => pill("Backend server is ready!"), {
