@@ -17,8 +17,13 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      // Precache only HTML/CSS: JS bundles are hashed and change on every deploy.
-      workbox: { globPatterns: ["**/*.{html,css}"] },
+      workbox: {
+        // Precache only HTML/CSS: JS bundles are hashed and change on every deploy.
+        globPatterns: ["**/*.{html,css}"],
+        // These are proxied to the backend. Without this the service worker
+        // answers the Google login redirect with index.html and sign-in never starts.
+        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
+      },
       manifest: {
         name: "Bookmarker",
         short_name: "Bookmarker",
