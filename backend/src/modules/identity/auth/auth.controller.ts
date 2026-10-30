@@ -23,6 +23,7 @@ import {
 import { GoogleAuthGuard } from './google-auth.guard';
 import type { AuthUser } from './jwt.strategy';
 
+export const SOCKET_PURPOSE = 'socket';
 const COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 @ApiTags('auth')
@@ -88,6 +89,21 @@ export class AuthController {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new UnauthorizedException();
     return user;
+  }
+
+  @Get('socket-token')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Short-lived token for the WebSocket handshake',
+  })
+  socketToken(@Req() req: FastifyRequest) {
+    const { email } = (req as any).user as AuthUser;
+    return {
+      token: this.jwtService.sign(
+        { email, purpose: SOCKET_PURPOSE },
+        { expiresIn: '60s' },
+      ),
+    };
   }
 
   @Post('logout')
