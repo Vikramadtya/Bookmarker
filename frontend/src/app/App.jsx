@@ -80,9 +80,25 @@ function Workspace() {
   );
 }
 
+function ServerUnreachable({ onRetry }) {
+  return (
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-950 px-6 text-center text-slate-200">
+      <p className="text-sm">Can&apos;t reach the server right now.</p>
+      <button
+        onClick={onRetry}
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 function Home() {
-  const { data: user, isLoading } = useAuth();
+  const { data: user, isLoading, isError, refetch } = useAuth();
   if (isLoading) return <Spinner />;
+  // Never show the sign-in page just because the check failed.
+  if (isError) return <ServerUnreachable onRetry={refetch} />;
   return user ? <Workspace /> : <LandingPage />;
 }
 

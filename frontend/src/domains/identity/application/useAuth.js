@@ -16,7 +16,11 @@ export function useAuth() {
         throw err;
       }
     },
-    retry: false,
+    // Only a 401 means "signed out". Anything else (a sleeping Render server
+    // answering 502/504, a dropped connection) is retried, so a cold start
+    // never looks like a logout.
+    retry: (count, err) => err.response?.status !== 401 && count < 15,
+    retryDelay: 3000,
     staleTime: Infinity, // the session is re-checked only when something signals it ended
   });
 }
