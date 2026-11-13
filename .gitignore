@@ -10,3 +10,6 @@ frontend-old/
 
 frontend/dev-dist/
 .idea/workspace.xml
+safari/**/xcuserdata/
+safari/**/build/
+safari/**/DerivedData/

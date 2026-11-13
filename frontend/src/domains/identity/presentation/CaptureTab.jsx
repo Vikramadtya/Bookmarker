@@ -78,8 +78,9 @@ export default function CaptureTab() {
           <code>chrome://extensions</code>, turn on Developer mode, choose{" "}
           <b>Load unpacked</b> and pick the <code>extension</code> folder from
           the project. Set your app address (<code>{origin}</code>) in its
-          options. Save the current tab with the toolbar button or
-          Ctrl/⌘+Shift+S.
+          options along with the token from the email-to-save address below.
+          Safari uses the Xcode project in <code>safari/</code>. Save the
+          current tab with the toolbar button or Ctrl/⌘+Shift+S.
         </p>
       </div>
 

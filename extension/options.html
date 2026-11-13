@@ -49,8 +49,14 @@
       placeholder="https://your-bookmarker.example.com"
     />
     <p>
-      Use the same address you open the app at, without a trailing path. The
-      browser will ask permission to talk to it.
+      Use the same address you open the app at. The browser will ask permission
+      to talk to it.
+    </p>
+    <label for="token">Capture token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false" />
+    <p>
+      In Bookmarker open Settings, then Capture, and copy the token from the
+      email-to-save address (the part after <code>token=</code>).
     </p>
     <button id="save">Save</button>
     <span id="status"></span>
