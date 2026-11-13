@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { isRetryable, queueSave } from "@/lib/saveQueue";
 import { makeApiRequest } from "@/lib/api";
 import { BASE_URL } from "@/lib/metadata";
 import { folderTokenHeaders } from "@/lib/folderTokens";
@@ -126,13 +127,35 @@ export function useTags() {
 export function useCreateBookmark() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) =>
-      makeApiRequest({
-        url: `${BASE_URL}/bookmarks`,
-        method: "POST",
-        body: data,
-      }),
-    onSuccess: () => {
+    mutationFn: async (data) => {
+      try {
+        return await makeApiRequest({
+          url: `${BASE_URL}/bookmarks`,
+          method: "POST",
+          body: data,
+          meta: { silent: true },
+        });
+      } catch (error) {
+        if (!isRetryable(error)) {
+          const message = error.response?.data?.message;
+          toast.error(
+            (Array.isArray(message) ? message[0] : message) ||
+              "Could not save this bookmark."
+          );
+          throw error;
+        }
+        // Keep the link on this device and send it as soon as the server answers.
+        queueSave(data);
+        return { queued: true };
+      }
+    },
+    onSuccess: (result) => {
+      if (result?.queued) {
+        toast.info("Saved on this device", {
+          description: "It will sync as soon as the server is reachable.",
+        });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: bookmarkKeys.all });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
       queryClient.invalidateQueries({ queryKey: ["counts"] });

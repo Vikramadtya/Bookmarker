@@ -6,6 +6,7 @@ import {
   Highlighter,
   Minus,
   Plus,
+  Coffee,
   StickyNote,
 } from "lucide-react";
 import DOMPurify from "dompurify";
@@ -25,11 +26,24 @@ function loadPrefs() {
     return {
       size: SIZES.includes(saved.size) ? saved.size : 18,
       serif: saved.serif ?? true,
+      sepia: saved.sepia ?? false,
     };
   } catch {
-    return { size: 18, serif: true };
+    return { size: 18, serif: true, sepia: false };
   }
 }
+
+const POS_KEY = (id) => `reader-pos:${id}`;
+
+const SEPIA_STYLE = {
+  "--tw-prose-body": "#433422",
+  "--tw-prose-headings": "#2b2013",
+  "--tw-prose-links": "#8a5a14",
+  "--tw-prose-bold": "#2b2013",
+  "--tw-prose-quotes": "#2b2013",
+  "--tw-prose-captions": "#7a6648",
+  "--tw-prose-code": "#2b2013",
+};
 
 function minutesToRead(html) {
   const text = html.replace(/<[^>]+>/g, " ");
@@ -77,6 +91,18 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
     if (isOpen) applyHighlights(articleRef.current, highlights ?? []);
   }, [isOpen, html, highlights, prefs.serif]);
 
+  // Pick up where you left off.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!isOpen || !el || !bookmark?.id) return;
+    try {
+      const saved = Number(localStorage.getItem(POS_KEY(bookmark.id)));
+      if (saved > 0) el.scrollTop = saved * (el.scrollHeight - el.clientHeight);
+    } catch {
+      /* start from the top */
+    }
+  }, [isOpen, bookmark?.id, html]);
+
   if (!isOpen || !bookmark) return null;
 
   const captureSelection = () => {
@@ -114,7 +140,16 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
   const onScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     const max = scrollHeight - clientHeight;
-    setProgress(max > 0 ? Math.min(1, scrollTop / max) : 1);
+    const fraction = max > 0 ? Math.min(1, scrollTop / max) : 1;
+    setProgress(fraction);
+    try {
+      // Finished or barely started articles open from the top next time.
+      if (fraction > 0.97 || fraction < 0.02)
+        localStorage.removeItem(POS_KEY(bookmark.id));
+      else localStorage.setItem(POS_KEY(bookmark.id), String(fraction));
+    } catch {
+      /* position is a nicety */
+    }
   };
 
   return (
@@ -201,6 +236,17 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
                 Aa
               </button>
               <button
+                onClick={() => setPrefs((p) => ({ ...p, sepia: !p.sepia }))}
+                aria-pressed={prefs.sepia}
+                title="Warm paper theme"
+                className={cn(
+                  toolButton,
+                  prefs.sepia && "bg-amber-100 text-amber-800"
+                )}
+              >
+                <Coffee className="h-3.5 w-3.5" />
+              </button>
+              <button
                 onClick={onClose}
                 aria-label="Close reader"
                 className="ml-1 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
@@ -218,18 +264,34 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
             }}
             onMouseUp={captureSelection}
             onKeyUp={captureSelection}
-            className="flex-1 overflow-y-auto bg-white px-5 py-8 sm:px-10 sm:py-12 dark:bg-slate-950"
+            style={
+              prefs.sepia
+                ? { background: "#f4ecd8", ...SEPIA_STYLE }
+                : undefined
+            }
+            className={cn(
+              "flex-1 overflow-y-auto px-5 py-8 sm:px-10 sm:py-12",
+              !prefs.sepia && "bg-white dark:bg-slate-950"
+            )}
           >
             <div className="mx-auto max-w-[42rem]">
-              <h1 className="mb-8 text-3xl leading-tight font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
+              <h1
+                className={cn(
+                  "mb-8 text-3xl leading-tight font-bold tracking-tight sm:text-4xl",
+                  prefs.sepia
+                    ? "text-[#2b2013]"
+                    : "text-slate-900 dark:text-white"
+                )}
+              >
                 {bookmark.title}
               </h1>
               <article
                 ref={articleRef}
                 style={{ fontSize: prefs.size, lineHeight: 1.75 }}
                 className={cn(
-                  "prose prose-slate dark:prose-invert prose-headings:font-sans prose-headings:tracking-tight prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-img:rounded-2xl prose-p:my-[1.1em] max-w-none",
-                  prefs.serif && "font-serif"
+                  "prose prose-slate prose-headings:font-sans prose-headings:tracking-tight prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-img:rounded-2xl prose-p:my-[1.1em] max-w-none",
+                  prefs.serif && "font-serif",
+                  !prefs.sepia && "dark:prose-invert"
                 )}
                 dangerouslySetInnerHTML={{ __html: html }}
               />

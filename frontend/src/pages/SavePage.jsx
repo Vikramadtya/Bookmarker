@@ -121,7 +121,9 @@ export default function SavePage() {
           <Check className="h-5 w-5" />
         </span>
         <p className="mt-3 text-sm font-medium text-slate-800 dark:text-slate-100">
-          Saved to your Inbox
+          {create.data?.queued
+            ? "Saved on this device, syncing soon"
+            : "Saved to your Inbox"}
         </p>
         {create.data?.id && (
           <div className="mt-4">

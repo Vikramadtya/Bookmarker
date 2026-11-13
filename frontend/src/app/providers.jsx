@@ -7,6 +7,7 @@ import { LazyMotion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { makeApiRequest } from "@/lib/api";
+import { flushSaveQueue, pendingCount } from "@/lib/saveQueue";
 import { AUTH_URL, SOCKET_URL } from "@/lib/metadata";
 import { endSession, useAuth } from "@/domains/identity/application/useAuth";
 import { patchBookmark } from "@/domains/bookmarks/application/bookmarkCache";
@@ -103,6 +104,37 @@ function RealtimeSync() {
   return null;
 }
 
+/** Sends saves that were made offline once the connection and server are back. */
+function SaveQueueSync() {
+  const queryClient = useQueryClient();
+  const { data: user } = useAuth();
+  const signedIn = Boolean(user);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    const run = async () => {
+      if (pendingCount() === 0) return;
+      const sent = await flushSaveQueue();
+      if (sent > 0) {
+        queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+        queryClient.invalidateQueries({ queryKey: ["counts"] });
+        toast.success(
+          sent === 1 ? "Synced 1 saved link" : `Synced ${sent} saved links`
+        );
+      }
+    };
+    run();
+    window.addEventListener("online", run);
+    const timer = setInterval(run, 30_000);
+    return () => {
+      window.removeEventListener("online", run);
+      clearInterval(timer);
+    };
+  }, [signedIn, queryClient]);
+
+  return null;
+}
+
 function SessionExpiry() {
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -154,6 +186,7 @@ export default function Providers({ children }) {
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SessionExpiry />
           <RealtimeSync />
+          <SaveQueueSync />
           {children}
           <Toaster richColors position="top-right" />
         </ThemeProvider>
