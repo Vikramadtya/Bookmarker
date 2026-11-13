@@ -1,6 +1,12 @@
 // Built-in smart views. A view is just a saved search: the same operators work in
 // the search box (see "Search syntax" in the header).
 export const BUILTIN_VIEWS = [
+  {
+    id: "builtin:revisit",
+    name: "Revisit",
+    q: "is:revisit",
+    icon: "bell",
+  },
   { id: "builtin:unread", name: "Unread", q: "is:unread", icon: "inbox" },
   { id: "builtin:week", name: "Saved this week", q: "saved:7d", icon: "clock" },
   {

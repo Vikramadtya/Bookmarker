@@ -4,7 +4,7 @@
  *   tag:x        has the tag x (or a nested tag below it, x/...)
  *   -tag:x       does not have it
  *   site:x       from the domain x (subdomains included)
- *   is:...       unread | reading | done | archived | fav | pinned | dead | article
+ *   is:...       unread | reading | done | archived | fav | pinned | dead | article | revisit | due
  *   saved:Nd     saved within the last N days
  *   older:Nd     saved more than N days ago
  *   opened:Nd    opened within the last N days
@@ -21,7 +21,7 @@ export interface ParsedQuery {
   notTags: string[];
   sites: string[];
   statuses: Status[];
-  flags: Set<'fav' | 'pinned' | 'dead' | 'article'>;
+  flags: Set<'fav' | 'pinned' | 'dead' | 'article' | 'revisit' | 'due'>;
   savedWithinDays?: number;
   olderThanDays?: number;
   openedWithinDays?: number;
@@ -67,6 +67,8 @@ export function parseSearchQuery(input: string): ParsedQuery {
       else if (v === 'pinned') parsed.flags.add('pinned');
       else if (v === 'dead') parsed.flags.add('dead');
       else if (v === 'article') parsed.flags.add('article');
+      else if (v === 'revisit') parsed.flags.add('revisit');
+      else if (v === 'due') parsed.flags.add('due');
       else handled = false;
     } else if (op === 'saved' && days(value) !== undefined)
       parsed.savedWithinDays = days(value);

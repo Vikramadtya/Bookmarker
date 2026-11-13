@@ -79,6 +79,12 @@ export class CreateBookmarkDto {
   @IsDateString()
   snoozedUntil?: string | null;
 
+  /** Remind me to look at this again on this date; null clears it. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsDateString()
+  revisitAt?: string | null;
+
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(10)

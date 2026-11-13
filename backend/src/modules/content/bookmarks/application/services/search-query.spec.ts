@@ -27,4 +27,11 @@ describe('parseSearchQuery', () => {
       'note:this is:nonsense',
     );
   });
+
+  it('understands the revisit operators', () => {
+    expect([...parseSearchQuery('is:revisit is:due').flags].sort()).toEqual([
+      'due',
+      'revisit',
+    ]);
+  });
 });

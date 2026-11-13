@@ -26,6 +26,7 @@ export class BookmarkMapper {
       openCount: doc.openCount ?? 0,
       lastOpenedAt: doc.lastOpenedAt ?? doc.createdAt,
       snoozedUntil: doc.snoozedUntil ?? null,
+      revisitAt: doc.revisitAt ?? null,
       normalizedUrl: doc.normalizedUrl ?? '',
       domain: doc.domain ?? '',
       position: doc.position ?? -new Date(doc.createdAt).getTime(),

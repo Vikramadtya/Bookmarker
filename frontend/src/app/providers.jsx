@@ -1,8 +1,6 @@
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { QueryClient, useQueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { persister } from "@/lib/persist";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { LazyMotion } from "framer-motion";
@@ -124,14 +122,32 @@ export default function Providers({ children }) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 5 * 60_000, refetchOnWindowFocus: false },
+          queries: {
+            staleTime: 5 * 60_000,
+            refetchOnWindowFocus: false,
+            gcTime: 24 * 60 * 60_000, // long enough to be worth saving to disk
+          },
         },
       })
   );
   useServerWakeup();
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 7 * 24 * 60 * 60_000,
+        dehydrateOptions: {
+          // The session is always verified live; never restored from disk.
+          shouldDehydrateQuery: (q) =>
+            q.state.status === "success" && q.queryKey[0] !== "auth-status",
+        },
+      }}
+      onSuccess={() =>
+        queryClient.refetchQueries({ queryKey: ["auth-status"] })
+      }
+    >
       <LazyMotion
         features={() => import("@/lib/motionFeatures").then((f) => f.default)}
       >
@@ -142,6 +158,6 @@ export default function Providers({ children }) {
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </LazyMotion>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

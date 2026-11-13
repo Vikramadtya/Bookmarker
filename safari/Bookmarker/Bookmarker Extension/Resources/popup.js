@@ -25,6 +25,16 @@ async function api(app, token, path, options = {}) {
   return response.json();
 }
 
+// "This weekend" is the coming Saturday; the others are a number of days.
+function revisitDate(choice) {
+  if (!choice) return undefined;
+  const d = new Date();
+  const days = choice === "2" ? (6 - d.getDay() + 7) % 7 || 7 : Number(choice);
+  d.setDate(d.getDate() + days);
+  d.setHours(9, 0, 0, 0);
+  return d.toISOString();
+}
+
 async function main() {
   const { appUrl, token } = await ext.storage.local.get(["appUrl", "token"]);
   if (!appUrl || !token) {
@@ -61,6 +71,7 @@ async function main() {
             bookmarkURL: tab.url,
             title: $("title").value.trim(),
             folderId: $("folder").value,
+            revisitAt: revisitDate($("revisit").value),
             tags: $("tags")
               .value.split(",")
               .map((t) => t.trim())

@@ -130,7 +130,7 @@ function Home() {
   )
     return <Navigate to="/save" replace />;
   // Never show the sign-in page just because the check failed.
-  if (isError) return <ServerUnreachable onRetry={refetch} />;
+  if (isError && !user) return <ServerUnreachable onRetry={refetch} />;
   return user ? <Workspace /> : <LandingPage />;
 }
 

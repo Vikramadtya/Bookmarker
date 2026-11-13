@@ -1,4 +1,12 @@
-import { Archive, BookOpenCheck, Circle, Moon, Pin } from "lucide-react";
+import {
+  Archive,
+  BellRing,
+  BookOpenCheck,
+  Circle,
+  Moon,
+  Pin,
+} from "lucide-react";
+import { REVISIT_PRESETS, formatRevisit } from "@/lib/revisit";
 import { cn } from "@/lib/utils";
 import { STATUS_LABELS } from "@/lib/viewDefs";
 import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
@@ -91,6 +99,49 @@ export default function BookmarkStatusBar({ bookmark }) {
           {snoozed ? "Snoozed · wake up" : "Snooze"}
         </button>
       )}
+
+      <label
+        className={cn(
+          "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium",
+          bookmark.revisitAt
+            ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+            : "border-slate-200 text-slate-500 dark:border-slate-800"
+        )}
+      >
+        <BellRing className="h-3 w-3" />
+        <select
+          aria-label="Revisit later"
+          value=""
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return;
+            update({
+              id: bookmark.id,
+              data: {
+                revisitAt:
+                  v === "clear"
+                    ? null
+                    : REVISIT_PRESETS.find((p) => p.id === v)
+                        .at()
+                        .toISOString(),
+              },
+            });
+          }}
+          className="cursor-pointer bg-transparent outline-none"
+        >
+          <option value="">
+            {bookmark.revisitAt
+              ? `Revisit ${formatRevisit(bookmark.revisitAt)}`
+              : "Revisit later"}
+          </option>
+          {REVISIT_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+          {bookmark.revisitAt && <option value="clear">Clear reminder</option>}
+        </select>
+      </label>
     </div>
   );
 }

@@ -61,6 +61,10 @@ export class Bookmark {
   @Prop({ type: Date, default: null })
   snoozedUntil: Date;
 
+  /** "Revisit this on...": shows up in the Revisit view once the date passes. */
+  @Prop({ type: Date, default: null })
+  revisitAt: Date;
+
   @Prop({ type: String, maxlength: 2100 })
   normalizedUrl: string;
 
@@ -121,6 +125,7 @@ BookmarkSchema.index({ userId: 1, domain: 1, _id: 1 });
 BookmarkSchema.index({ userId: 1, lastOpenedAt: -1, _id: -1 });
 BookmarkSchema.index({ userId: 1, position: 1, _id: 1 });
 BookmarkSchema.index({ userId: 1, normalizedUrl: 1 });
+BookmarkSchema.index({ userId: 1, revisitAt: 1 }, { sparse: true });
 BookmarkSchema.index({ userId: 1, tags: 1 });
 // Dead-link sweep
 BookmarkSchema.index({ lastCheckedAt: 1 });

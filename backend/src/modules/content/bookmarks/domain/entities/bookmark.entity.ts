@@ -31,6 +31,7 @@ export interface Bookmark {
   openCount: number;
   lastOpenedAt: Date;
   snoozedUntil: Date | null;
+  revisitAt: Date | null;
   normalizedUrl: string;
   domain: string;
   /** Manual order inside a folder; lower comes first. */

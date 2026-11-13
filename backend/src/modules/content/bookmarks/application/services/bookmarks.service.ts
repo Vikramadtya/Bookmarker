@@ -118,6 +118,7 @@ export class BookmarksService {
     const bookmark = await this.bookmarksRepository.create({
       ...(dto as Partial<Bookmark>),
       snoozedUntil: dto.snoozedUntil ? new Date(dto.snoozedUntil) : null,
+      revisitAt: dto.revisitAt ? new Date(dto.revisitAt) : null,
       userId,
       title: dto.title ?? '',
       description: dto.description ?? '',
@@ -215,10 +216,12 @@ export class BookmarksService {
   }
 
   async updateBookmark(userId: string, id: string, dto: UpdateBookmarkDto) {
-    const { snoozedUntil, ...rest } = dto;
+    const { snoozedUntil, revisitAt, ...rest } = dto;
     const changes: Partial<Bookmark> = { ...(rest as Partial<Bookmark>) };
     if (snoozedUntil !== undefined)
       changes.snoozedUntil = snoozedUntil ? new Date(snoozedUntil) : null;
+    if (revisitAt !== undefined)
+      changes.revisitAt = revisitAt ? new Date(revisitAt) : null;
     const updated = await this.bookmarksRepository.update(
       { _id: id, userId },
       changes,
@@ -301,18 +304,21 @@ export class BookmarksService {
   async getCounts(userId: string) {
     const now = new Date();
     const live = { userId, status: { $ne: 'archived' } };
-    const [total, unread, archived, dead, duplicateGroups] = await Promise.all([
-      this.bookmarksRepository.count(live),
-      this.bookmarksRepository.count({ userId, ...this.triageFilter(now) }),
-      this.bookmarksRepository.count({ userId, status: 'archived' }),
-      this.bookmarksRepository.count({ ...live, isDeadLink: true }),
-      this.bookmarksRepository.findDuplicateGroups(userId, 200),
-    ]);
+    const [total, unread, archived, dead, revisit, duplicateGroups] =
+      await Promise.all([
+        this.bookmarksRepository.count(live),
+        this.bookmarksRepository.count({ userId, ...this.triageFilter(now) }),
+        this.bookmarksRepository.count({ userId, status: 'archived' }),
+        this.bookmarksRepository.count({ ...live, isDeadLink: true }),
+        this.bookmarksRepository.count({ ...live, revisitAt: { $lte: now } }),
+        this.bookmarksRepository.findDuplicateGroups(userId, 200),
+      ]);
     return {
       total,
       unread,
       archived,
       dead,
+      revisit,
       duplicates: duplicateGroups.length,
     };
   }
@@ -434,6 +440,8 @@ export class BookmarksService {
     if (parsed.flags.has('pinned')) and.push({ pinned: true });
     if (parsed.flags.has('dead')) and.push({ isDeadLink: true });
     if (parsed.flags.has('article')) and.push({ isArticle: true });
+    if (parsed.flags.has('revisit')) and.push({ revisitAt: { $ne: null } });
+    if (parsed.flags.has('due')) and.push({ revisitAt: { $lte: now } });
 
     const ago = (days: number) => new Date(now.getTime() - days * DAY_MS);
     if (parsed.savedWithinDays !== undefined)

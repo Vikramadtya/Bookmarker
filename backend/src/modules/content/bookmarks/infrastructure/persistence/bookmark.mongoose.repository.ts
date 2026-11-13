@@ -227,6 +227,8 @@ export class BookmarksMongooseRepository
             $set: {
               openCount: { $add: [{ $ifNull: ['$openCount', 0] }, 1] },
               lastOpenedAt: '$$NOW',
+              // Looking at it is the revisit.
+              revisitAt: null,
               // Opening something you have not read yet means you are reading it.
               status: {
                 $cond: [{ $eq: ['$status', 'unread'] }, 'reading', '$status'],

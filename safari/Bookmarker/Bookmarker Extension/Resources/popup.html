@@ -113,6 +113,14 @@
         id="tags"
         placeholder="comma separated, e.g. dev/rust, read-later"
       />
+      <label for="revisit">Revisit later</label>
+      <select id="revisit">
+        <option value="">No reminder</option>
+        <option value="1">Tomorrow</option>
+        <option value="2">This weekend</option>
+        <option value="7">Next week</option>
+        <option value="30">In a month</option>
+      </select>
       <button id="save" type="submit">Save</button>
     </form>
     <script src="popup.js"></script>

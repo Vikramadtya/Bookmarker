@@ -5,6 +5,9 @@ import { useFolders } from "@/domains/folders/application/useFolders";
 import { useCreateBookmark } from "@/domains/bookmarks/application/useBookmarks";
 import { useExistingBookmark } from "@/domains/organize/application/useOrganize";
 import { AUTH_URL } from "@/lib/metadata";
+import RevisitPicker from "@/domains/bookmarks/presentation/RevisitPicker";
+import { revisitISO } from "@/lib/revisit";
+import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
 
 const PENDING_KEY = "pending-save";
 const URL_IN_TEXT = /https?:\/\/[^\s]+/i;
@@ -35,6 +38,8 @@ export default function SavePage() {
   const { data: user, isLoading } = useAuth();
   const { data: folders = [] } = useFolders();
   const create = useCreateBookmark();
+  const { mutate: update } = useUpdateBookmark();
+  const [revisit, setRevisit] = useState(null);
   const [target] = useState(readTarget);
   const { data: existing } = useExistingBookmark(user ? target.url : "");
   const started = useRef(false);
@@ -118,6 +123,20 @@ export default function SavePage() {
         <p className="mt-3 text-sm font-medium text-slate-800 dark:text-slate-100">
           Saved to your Inbox
         </p>
+        {create.data?.id && (
+          <div className="mt-4">
+            <RevisitPicker
+              value={revisit}
+              onChange={(id) => {
+                setRevisit(id);
+                update({
+                  id: create.data.id,
+                  data: { revisitAt: id ? revisitISO(id) : null },
+                });
+              }}
+            />
+          </div>
+        )}
       </>
     );
   } else if (create.isError) {

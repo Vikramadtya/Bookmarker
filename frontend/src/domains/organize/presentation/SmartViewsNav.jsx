@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  BellRing,
   AlertTriangle,
   Archive,
   CalendarDays,
@@ -23,6 +24,7 @@ import {
 import { useNav } from "@/domains/organize/application/useNav";
 
 const ICONS = {
+  bell: BellRing,
   inbox: Inbox,
   clock: CalendarDays,
   history: History,
@@ -97,6 +99,7 @@ export default function SmartViewsNav({ compact }) {
   const [open, setOpen] = useState(true);
 
   const countFor = {
+    "builtin:revisit": counts?.revisit,
     "builtin:unread": counts?.unread,
     "builtin:dead": counts?.dead,
     "builtin:archive": counts?.archived,

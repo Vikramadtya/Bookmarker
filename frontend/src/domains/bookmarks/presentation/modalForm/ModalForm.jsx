@@ -9,6 +9,8 @@ import { useDebounce } from "@/shared/hooks/useDebounce";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
+import RevisitPicker from "../RevisitPicker";
+import { revisitISO } from "@/lib/revisit";
 
 import FolderSelect from "./fields/FolderSelect";
 import NotesInput from "./fields/NotesInput";
@@ -82,6 +84,7 @@ const ModalForm = ({
   }, [defaultFolderId, setValue, watch]);
 
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [revisit, setRevisit] = useState(null);
 
   // Saving the same page twice is usually a mistake: say so while typing.
   const typedUrl = useDebounce(watch("bookmarkURL") || "", 400);
@@ -115,6 +118,7 @@ const ModalForm = ({
             ? parsedTags
             : undefined,
         folderId: data.folderId,
+        ...(!isEdit && revisit && { revisitAt: revisitISO(revisit) }),
       });
     } catch (err) {
       console.error("[Form Submit] Error submitting:", err);
@@ -195,6 +199,8 @@ const ModalForm = ({
                 </p>
               )}
             </div>
+
+            {!isEdit && <RevisitPicker value={revisit} onChange={setRevisit} />}
 
             {/* Folder Selection */}
             <FolderSelect

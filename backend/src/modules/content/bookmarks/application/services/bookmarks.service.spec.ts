@@ -131,14 +131,12 @@ describe('BookmarksService.listBookmarks', () => {
   it('adds a snippet when article text is searched', async () => {
     const rows = [bookmark('1', 1)];
     const { service, repo } = setup(rows);
-    repo.find
-      .mockResolvedValueOnce(rows)
-      .mockResolvedValueOnce([
-        {
-          id: '1',
-          content: '<p>The borrow checker explains ownership well.</p>',
-        },
-      ]);
+    repo.find.mockResolvedValueOnce(rows).mockResolvedValueOnce([
+      {
+        id: '1',
+        content: '<p>The borrow checker explains ownership well.</p>',
+      },
+    ]);
     const page = await service.listBookmarks('u', {
       q: 'ownership',
       fields: 'content',

@@ -18,6 +18,12 @@ import { Preferences } from './preferences.schema';
 import { toHttpUrl } from '../settings/importers';
 
 const MAX_LINKS = 20;
+
+/** An ISO date in the future, or undefined. */
+const parseFuture = (v: unknown) => {
+  const t = typeof v === 'string' ? Date.parse(v) : NaN;
+  return t > Date.now() ? new Date(t).toISOString() : undefined;
+};
 const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/gi;
 
 /** Fields the common inbound-email providers (Postmark, Mailgun, SendGrid, ...) use for the body. */
@@ -101,6 +107,7 @@ export class InboundController {
       title:
         typeof body.title === 'string' ? body.title.slice(0, 300) : undefined,
       tags,
+      revisitAt: parseFuture(body.revisitAt),
     } as never);
     return { id: bookmark.id };
   }

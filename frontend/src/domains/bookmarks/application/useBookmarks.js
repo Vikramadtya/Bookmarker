@@ -170,8 +170,9 @@ export function useUpdateBookmark() {
         "status" in data ||
         "pinned" in data ||
         "snoozedUntil" in data ||
+        "revisitAt" in data ||
         "position" in data;
-      if ("status" in data || "folderId" in data)
+      if ("status" in data || "folderId" in data || "revisitAt" in data)
         queryClient.invalidateQueries({ queryKey: ["counts"] });
       queryClient.invalidateQueries({
         queryKey: bookmarkKeys.all,
