@@ -1,4 +1,4 @@
-import { Bookmark, ScrapeStatus } from '../entities/bookmark.entity';
+import { Bookmark, Highlight, ScrapeStatus } from '../entities/bookmark.entity';
 
 export const IBookmarkRepository = Symbol('IBookmarkRepository');
 
@@ -9,19 +9,39 @@ export interface ScrapeResult {
   description?: string;
   logoURL?: string;
   imageURL?: string;
+  summary?: string;
+  suggestedTags?: string[];
+  suggestedFolderId?: string | null;
   content?: string;
   isArticle?: boolean;
   scrapeStatus: ScrapeStatus;
+}
+
+export interface FindOptions {
+  limit?: number;
+  includeContent?: boolean;
+  sort?: Record<string, 1 | -1>;
+  /** Case-insensitive ordering for text sorts. */
+  caseInsensitive?: boolean;
+}
+
+export interface BulkUpdate {
+  set?: Partial<Bookmark>;
+  addTags?: string[];
+  removeTags?: string[];
+}
+
+export interface DomainAffinity {
+  folders: { folderId: string; count: number }[];
+  tags: { tag: string; count: number }[];
 }
 
 export interface IBookmarkRepository {
   create(data: Partial<Bookmark>): Promise<Bookmark>;
   createMany(data: Partial<Bookmark>[]): Promise<Bookmark[]>;
   findOne(filter: Filter): Promise<Bookmark | null>;
-  find(
-    filter: Filter,
-    options?: { limit?: number; includeContent?: boolean },
-  ): Promise<Bookmark[]>;
+  find(filter: Filter, options?: FindOptions): Promise<Bookmark[]>;
+  count(filter: Filter): Promise<number>;
   update(filter: Filter, data: Partial<Bookmark>): Promise<Bookmark | null>;
   delete(filter: Filter): Promise<boolean>;
 
@@ -36,6 +56,30 @@ export interface IBookmarkRepository {
   deleteAllByUser(userId: string): Promise<void>;
 
   getTags(userId: string): Promise<string[]>;
+  tagCounts(userId: string): Promise<{ tag: string; count: number }[]>;
+  /** Renames a tag and every nested tag below it; merges when `to` exists. */
+  renameTag(userId: string, from: string, to: string): Promise<number>;
+  removeTag(userId: string, tag: string): Promise<number>;
+
+  bulkUpdate(userId: string, ids: string[], changes: BulkUpdate): Promise<void>;
+  recordOpen(userId: string, id: string): Promise<Bookmark | null>;
+  addHighlight(
+    userId: string,
+    id: string,
+    highlight: Highlight,
+  ): Promise<Highlight[] | null>;
+  removeHighlight(
+    userId: string,
+    id: string,
+    highlightId: string,
+  ): Promise<Highlight[] | null>;
+
+  findByNormalizedUrl(userId: string, url: string): Promise<Bookmark | null>;
+  /** Groups of bookmarks that point at the same page. */
+  findDuplicateGroups(userId: string, limit: number): Promise<Bookmark[][]>;
+  domainAffinity(userId: string, domain: string): Promise<DomainAffinity>;
+  /** Fills normalizedUrl/domain/position on bookmarks saved before they existed. */
+  backfillDerived(batch: number): Promise<number>;
   findExistingUrls(userId: string): Promise<Set<string>>;
 
   /** Fills only the fields the user has left empty, in a single atomic update. */

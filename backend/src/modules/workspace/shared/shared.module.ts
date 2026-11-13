@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SharedController } from './shared.controller';
+import { SharedController, ShareLandingController } from './shared.controller';
 import { FoldersModule } from '@workspace/folders/folders.module';
 import { BookmarksModule } from '@content/bookmarks/bookmarks.module';
 import { UsersModule } from '@identity/users/users.module';
@@ -12,6 +12,6 @@ import { UsersModule } from '@identity/users/users.module';
  */
 @Module({
   imports: [FoldersModule, BookmarksModule, UsersModule],
-  controllers: [SharedController],
+  controllers: [SharedController, ShareLandingController],
 })
 export class SharedModule {}

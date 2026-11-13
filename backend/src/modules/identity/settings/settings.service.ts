@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import * as cheerio from 'cheerio';
 import {
   BookmarksService,
   ImportItem,
 } from '@content/bookmarks/application/services/bookmarks.service';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
+import { MAX_IMPORT_FOLDERS, parseImport } from './importers';
 
-const MAX_IMPORT_FOLDERS = 500;
-const MAX_IMPORT_BOOKMARKS = 5000;
+const csvCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
 const escapeHtml = (value: string) =>
   value
@@ -15,18 +14,6 @@ const escapeHtml = (value: string) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-
-function toHttpUrl(raw: string | undefined): string | null {
-  if (!raw || raw.length > 2048) return null;
-  try {
-    const url = new URL(raw.trim());
-    return url.protocol === 'http:' || url.protocol === 'https:'
-      ? url.toString()
-      : null;
-  } catch {
-    return null;
-  }
-}
 
 @Injectable()
 export class SettingsService {
@@ -98,48 +85,125 @@ export class SettingsService {
     );
   }
 
-  async importFromHtml(userId: string, htmlContent: string) {
-    const $ = cheerio.load(htmlContent);
+  /** Rows for the JSON and CSV exports, with each bookmark's folder as a path. */
+  private async exportRows(userId: string) {
+    const [folders, bookmarks] = await Promise.all([
+      this.foldersService.getAllFolders(userId),
+      this.bookmarksService.getAll(userId),
+    ]);
+    const byId = new Map(folders.map((f) => [f.id, f]));
+    const pathOf = (id: string) => {
+      const names: string[] = [];
+      for (
+        let f = byId.get(id);
+        f;
+        f = f.parentId ? byId.get(f.parentId) : undefined
+      )
+        names.unshift(f.name);
+      return names.join('/');
+    };
+    return bookmarks.map((b) => ({
+      url: b.bookmarkURL,
+      title: b.title,
+      description: b.description,
+      tags: b.tags,
+      folder: pathOf(b.folderId),
+      favorite: b.isFavorite,
+      status: b.status,
+      saved: new Date(b.creationDate).toISOString(),
+      notes: b.comments,
+    }));
+  }
+
+  async exportToJson(userId: string): Promise<string> {
+    return JSON.stringify(await this.exportRows(userId), null, 2);
+  }
+
+  async exportToCsv(userId: string): Promise<string> {
+    const rows = await this.exportRows(userId);
+    const header =
+      'title,url,description,tags,folder,favorite,status,saved,notes';
+    const lines = rows.map((r) =>
+      [
+        r.title,
+        r.url,
+        r.description,
+        r.tags.join(', '),
+        r.folder,
+        String(r.favorite),
+        r.status,
+        r.saved,
+        r.notes.join(' | '),
+      ]
+        .map(csvCell)
+        .join(','),
+    );
+    return [header, ...lines].join('\n');
+  }
+
+  /** Imports HTML (browsers, Raindrop, Pinboard, Pocket), JSON (Pinboard, this app) or CSV. */
+  async importData(userId: string, content: string) {
+    const parsed = parseImport(content);
     const inboxId = (await this.foldersService.getInbox(userId)).id;
+    const folderIds = await this.folderResolver(userId, inboxId);
 
     const items: ImportItem[] = [];
-    let folderCount = 0;
-
-    const walk = async (dl: any, parentId: string | undefined) => {
-      for (const dt of $(dl).children('dt').toArray()) {
-        const heading = $(dt).children('h3').first();
-        const link = $(dt).children('a').first();
-
-        if (heading.length > 0) {
-          if (++folderCount > MAX_IMPORT_FOLDERS) continue;
-          const folder = await this.foldersService.createFolder(userId, {
-            name: heading.text().trim().slice(0, 100) || 'Untitled',
-            parentId,
-          });
-          const childList = $(dt).next('dl');
-          const nested =
-            childList.length > 0 ? childList : $(dt).children('dl').first();
-          if (nested.length > 0) await walk(nested[0], folder.id);
-        } else if (link.length > 0 && items.length < MAX_IMPORT_BOOKMARKS) {
-          const bookmarkURL = toHttpUrl(link.attr('href'));
-          if (bookmarkURL) {
-            items.push({
-              bookmarkURL,
-              title: link.text().trim().slice(0, 500),
-              folderId: parentId ?? inboxId,
-            });
-          }
-        }
-      }
-    };
-
-    const root = $('dl').first();
-    if (root.length > 0) await walk(root[0], undefined);
+    for (const entry of parsed) {
+      const folderId = await folderIds(entry.folderPath);
+      items.push({
+        bookmarkURL: entry.bookmarkURL,
+        title: entry.title,
+        description: entry.description,
+        tags: entry.tags,
+        comments: entry.comments,
+        isFavorite: entry.isFavorite,
+        status: entry.status,
+        folderId,
+      });
+    }
 
     const { imported, skipped } = await this.bookmarksService.importBookmarks(
       userId,
       items,
     );
     return { success: true, imported, skipped };
+  }
+
+  /** Maps a folder path ("Work/Reading") to an id, creating folders that do not exist yet. */
+  private async folderResolver(userId: string, inboxId: string) {
+    const existing = await this.foldersService.getAllFolders(userId);
+    const byId = new Map(existing.map((f) => [f.id, f]));
+    const known = new Map<string, string>();
+    for (const f of existing) {
+      const names: string[] = [];
+      for (
+        let cur: typeof f | undefined = f;
+        cur;
+        cur = cur.parentId ? byId.get(cur.parentId) : undefined
+      )
+        names.unshift(cur.name);
+      if (!f.isInbox) known.set(names.join('/').toLowerCase(), f.id);
+    }
+    let created = 0;
+
+    return async (path: string[]): Promise<string> => {
+      let parentId: string | undefined;
+      let key = '';
+      for (const name of path) {
+        key = key ? `${key}/${name}` : name;
+        const lower = key.toLowerCase();
+        let id = known.get(lower);
+        if (!id) {
+          if (created >= MAX_IMPORT_FOLDERS) return parentId ?? inboxId;
+          created++;
+          id = (
+            await this.foldersService.createFolder(userId, { name, parentId })
+          ).id;
+          known.set(lower, id);
+        }
+        parentId = id;
+      }
+      return parentId ?? inboxId;
+    };
   }
 }

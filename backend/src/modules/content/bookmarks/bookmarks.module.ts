@@ -5,11 +5,19 @@ import { BookmarkStoreModule } from './bookmark-store.module';
 import { ScrapeService } from './infrastructure/jobs/scrape.service';
 import { DeadLinkService } from './infrastructure/jobs/dead-link.service';
 import { FoldersModule } from '@workspace/folders/folders.module';
+import { SuggestionsService } from './application/services/suggestions.service';
+import { AiService } from '@core/ai/ai.service';
 
 @Module({
   imports: [BookmarkStoreModule, FoldersModule],
   controllers: [BookmarksController],
-  providers: [BookmarksService, ScrapeService, DeadLinkService],
+  providers: [
+    BookmarksService,
+    ScrapeService,
+    DeadLinkService,
+    SuggestionsService,
+    AiService,
+  ],
   exports: [BookmarksService],
 })
 export class BookmarksModule {}

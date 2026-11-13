@@ -29,6 +29,11 @@ import { UpdateBookmarkDto } from './dto/update-bookmark.dto';
 import { ListBookmarksDto } from './dto/list-bookmarks.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
 import { BulkMoveDto } from './dto/bulk-move.dto';
+import {
+  BulkUpdateDto,
+  HighlightDto,
+  MergeBookmarksDto,
+} from './dto/bulk-update.dto';
 import { CurrentUser } from '@core/common/decorators/current-user.decorator';
 
 const UUID_LIST = /^[0-9a-fA-F-]{36}(,[0-9a-fA-F-]{36})*$/;
@@ -74,6 +79,52 @@ export class BookmarksController {
     return this.bookmarksService.createBookmark(userId, dto);
   }
 
+  @Get('counts')
+  @ApiOperation({
+    summary: 'Badge counts: total, unread, archived, dead, duplicates',
+  })
+  getCounts(@CurrentUser('email') userId: string) {
+    return this.bookmarksService.getCounts(userId);
+  }
+
+  @Get('check')
+  @ApiOperation({
+    summary: 'Is this URL already saved (ignoring tracking noise)?',
+  })
+  check(@CurrentUser('email') userId: string, @Query('url') url = '') {
+    return this.bookmarksService.findDuplicate(userId, url.slice(0, 2048));
+  }
+
+  @Get('duplicates')
+  @ApiOperation({ summary: 'Groups of bookmarks that point at the same page' })
+  duplicates(@CurrentUser('email') userId: string) {
+    return this.bookmarksService.getDuplicateGroups(userId);
+  }
+
+  @Post('merge')
+  @ApiOperation({ summary: 'Merge duplicates into one bookmark' })
+  @ApiBody({ type: MergeBookmarksDto })
+  merge(@CurrentUser('email') userId: string, @Body() body: MergeBookmarksDto) {
+    return this.bookmarksService.mergeBookmarks(
+      userId,
+      body.keepId,
+      body.mergeIds,
+    );
+  }
+
+  @Post('bulk-update')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Set status/favorite/pinned or add/remove tags on many bookmarks',
+  })
+  @ApiBody({ type: BulkUpdateDto })
+  async bulkUpdate(
+    @CurrentUser('email') userId: string,
+    @Body() { ids, ...changes }: BulkUpdateDto,
+  ) {
+    await this.bookmarksService.bulkUpdate(userId, ids, changes);
+  }
+
   @Get('tags')
   @ApiOperation({ summary: 'Get all unique tags across all bookmarks' })
   getTags(@CurrentUser('email') userId: string) {
@@ -109,6 +160,34 @@ export class BookmarksController {
   @ApiResponse({ status: 404, description: 'Bookmark not found' })
   getById(@CurrentUser('email') userId: string, @Param('id') id: string) {
     return this.bookmarksService.getBookmarkById(userId, id);
+  }
+
+  @Post(':id/opened')
+  @ApiOperation({ summary: 'Record that the link was opened' })
+  recordOpen(@CurrentUser('email') userId: string, @Param('id') id: string) {
+    return this.bookmarksService.recordOpen(userId, id);
+  }
+
+  @Post(':id/highlights')
+  @ApiOperation({
+    summary: 'Add a highlight (with optional note) to a bookmark',
+  })
+  addHighlight(
+    @CurrentUser('email') userId: string,
+    @Param('id') id: string,
+    @Body() body: HighlightDto,
+  ) {
+    return this.bookmarksService.addHighlight(userId, id, body.text, body.note);
+  }
+
+  @Delete(':id/highlights/:highlightId')
+  @ApiOperation({ summary: 'Remove a highlight' })
+  removeHighlight(
+    @CurrentUser('email') userId: string,
+    @Param('id') id: string,
+    @Param('highlightId') highlightId: string,
+  ) {
+    return this.bookmarksService.removeHighlight(userId, id, highlightId);
   }
 
   @Put(':id')

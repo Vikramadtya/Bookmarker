@@ -4,6 +4,7 @@ import {
   Post,
   Delete,
   Body,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -30,10 +31,15 @@ export class SettingsController {
 
   @Get('export')
   @ApiOperation({
-    summary: 'Export all bookmarks and folders in Netscape HTML format',
+    summary: 'Export all bookmarks: Netscape HTML (default), JSON or CSV',
   })
-  @ApiResponse({ status: 200, description: 'HTML string content' })
-  async exportData(@CurrentUser('email') userId: string) {
+  @ApiResponse({ status: 200, description: 'File content as a string' })
+  async exportData(
+    @CurrentUser('email') userId: string,
+    @Query('format') format?: string,
+  ) {
+    if (format === 'json') return this.settingsService.exportToJson(userId);
+    if (format === 'csv') return this.settingsService.exportToCsv(userId);
     return this.settingsService.exportToHtml(userId);
   }
 
@@ -41,7 +47,8 @@ export class SettingsController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Import bookmarks and folders from Netscape HTML string',
+    summary:
+      'Import from HTML, JSON or CSV (browsers, Raindrop, Pinboard, Pocket)',
   })
   @ApiBody({ type: ImportDto })
   @ApiResponse({ status: 200, description: 'Import successful' })
@@ -49,7 +56,7 @@ export class SettingsController {
     @CurrentUser('email') userId: string,
     @Body() importDto: ImportDto,
   ) {
-    return this.settingsService.importFromHtml(userId, importDto.htmlContent);
+    return this.settingsService.importData(userId, importDto.htmlContent);
   }
 
   @Delete('data')

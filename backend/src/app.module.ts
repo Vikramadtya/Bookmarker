@@ -13,6 +13,9 @@ import { SettingsModule } from '@identity/settings/settings.module';
 import { HealthModule } from '@core/health/health.module';
 import { UsersModule } from '@identity/users/users.module';
 import { SharedModule } from '@workspace/shared/shared.module';
+import { TagsModule } from '@content/tags/tags.module';
+import { ViewsModule } from '@workspace/views/views.module';
+import { PreferencesModule } from '@identity/preferences/preferences.module';
 import {
   getMongoUri,
   isProduction,
@@ -98,6 +101,9 @@ import {
     SettingsModule,
     UsersModule,
     SharedModule,
+    TagsModule,
+    ViewsModule,
+    PreferencesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

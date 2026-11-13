@@ -11,6 +11,7 @@ import {
 import { EventsGateway } from '@content/events/events.gateway';
 import { safeRequest } from '@core/security/url-safety';
 import { mapLimit } from '@core/common/async';
+import { SuggestionsService } from '../../application/services/suggestions.service';
 
 interface ScrapeTarget {
   bookmarkId: string;
@@ -41,6 +42,7 @@ export class ScrapeService implements OnModuleInit {
     private readonly bookmarksRepository: IBookmarkRepository,
     private readonly eventsGateway: EventsGateway,
     @Inject('AGENDA') private readonly agenda: Agenda,
+    private readonly suggestions: SuggestionsService,
   ) {}
 
   onModuleInit() {
@@ -72,7 +74,11 @@ export class ScrapeService implements OnModuleInit {
     let result: ScrapeResult;
     try {
       const meta = await this.extractMetadata(url);
-      result = { ...meta, scrapeStatus: 'done' };
+      result = {
+        ...meta,
+        scrapeStatus: 'done',
+        ...(await this.suggest(userId, bookmarkId, url, meta)),
+      };
     } catch (error) {
       this.logger.warn(`Scrape failed for ${url}: ${(error as Error).message}`);
       result = {
@@ -95,6 +101,9 @@ export class ScrapeService implements OnModuleInit {
           imageURL: updated.imageURL,
           isArticle: updated.isArticle,
           scrapeStatus: updated.scrapeStatus,
+          summary: updated.summary,
+          suggestedTags: updated.suggestedTags,
+          suggestedFolderId: updated.suggestedFolderId,
         });
       }
     } catch (error) {
@@ -102,6 +111,44 @@ export class ScrapeService implements OnModuleInit {
         `Could not save scrape result for ${bookmarkId}`,
         (error as Error).stack,
       );
+    }
+  }
+
+  /** Suggestions are a bonus: any failure just means none are offered. */
+  private async suggest(
+    userId: string,
+    bookmarkId: string,
+    url: string,
+    meta: Metadata,
+  ): Promise<Partial<ScrapeResult>> {
+    try {
+      const bookmark = await this.bookmarksRepository.findOne({
+        _id: bookmarkId,
+        userId,
+      });
+      if (!bookmark) return {};
+      const found = await this.suggestions.suggest(
+        userId,
+        {
+          url,
+          title: bookmark.title || meta.title,
+          folderId: bookmark.folderId,
+          tags: bookmark.tags,
+        },
+        {
+          title: meta.title,
+          description: meta.description,
+          text: meta.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '),
+        },
+      );
+      return {
+        summary: found.summary,
+        suggestedTags: found.tags,
+        suggestedFolderId: found.folderId,
+      };
+    } catch (error) {
+      this.logger.debug(`Suggestions skipped: ${(error as Error).message}`);
+      return {};
     }
   }
 

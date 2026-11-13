@@ -42,6 +42,57 @@ export class Bookmark {
   @Prop({ type: String, enum: ['pending', 'done', 'failed'], default: 'done' })
   scrapeStatus: string;
 
+  @Prop({
+    type: String,
+    enum: ['unread', 'reading', 'done', 'archived'],
+    default: 'unread',
+  })
+  status: string;
+
+  @Prop({ type: Boolean, default: false })
+  pinned: boolean;
+
+  @Prop({ type: Number, default: 0 })
+  openCount: number;
+
+  @Prop({ type: Date })
+  lastOpenedAt: Date;
+
+  @Prop({ type: Date, default: null })
+  snoozedUntil: Date;
+
+  @Prop({ type: String, maxlength: 2100 })
+  normalizedUrl: string;
+
+  @Prop({ type: String, maxlength: 255 })
+  domain: string;
+
+  @Prop({ type: Number })
+  position: number;
+
+  @Prop({ type: String, maxlength: 1000 })
+  summary: string;
+
+  @Prop({
+    type: [
+      {
+        _id: false,
+        id: { type: String, required: true },
+        text: { type: String, required: true, maxlength: 1000 },
+        note: { type: String, maxlength: 2000, default: '' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  highlights: Record<string, unknown>[];
+
+  @Prop({ type: [String], default: [] })
+  suggestedTags: string[];
+
+  @Prop({ type: String, default: null })
+  suggestedFolderId: string;
+
   @Prop({ type: [String], default: [] })
   tags: string[];
 
@@ -65,5 +116,11 @@ export const BookmarkSchema = SchemaFactory.createForClass(Bookmark);
 BookmarkSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 BookmarkSchema.index({ userId: 1, folderId: 1, createdAt: -1, _id: -1 });
 BookmarkSchema.index({ userId: 1, isFavorite: 1, createdAt: -1, _id: -1 });
+BookmarkSchema.index({ userId: 1, status: 1, createdAt: -1, _id: -1 });
+BookmarkSchema.index({ userId: 1, domain: 1, _id: 1 });
+BookmarkSchema.index({ userId: 1, lastOpenedAt: -1, _id: -1 });
+BookmarkSchema.index({ userId: 1, position: 1, _id: 1 });
+BookmarkSchema.index({ userId: 1, normalizedUrl: 1 });
+BookmarkSchema.index({ userId: 1, tags: 1 });
 // Dead-link sweep
 BookmarkSchema.index({ lastCheckedAt: 1 });

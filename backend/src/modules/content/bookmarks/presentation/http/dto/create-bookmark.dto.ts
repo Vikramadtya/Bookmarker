@@ -1,4 +1,8 @@
 import {
+  IsIn,
+  IsNumber,
+  ValidateIf,
+  IsDateString,
   IsString,
   IsUrl,
   IsOptional,
@@ -56,4 +60,34 @@ export class CreateBookmarkDto {
 
   @IsUUID()
   folderId: string;
+
+  @IsOptional()
+  @IsIn(['unread', 'reading', 'done', 'archived'])
+  status?: 'unread' | 'reading' | 'done' | 'archived';
+
+  @IsOptional()
+  @IsBoolean()
+  pinned?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  position?: number;
+
+  /** Hidden from the triage queue until this time; null clears it. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsDateString()
+  snoozedUntil?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  suggestedTags?: string[];
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID()
+  suggestedFolderId?: string | null;
 }

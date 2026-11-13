@@ -49,7 +49,7 @@ describe('SettingsService', () => {
 
   it('imports only http(s) links, nested under their folders', async () => {
     const { service, bookmarksService } = setup();
-    await service.importFromHtml(
+    await service.importData(
       'u',
       `<DL><p>
         <DT><H3>Dev</H3><DL><p>

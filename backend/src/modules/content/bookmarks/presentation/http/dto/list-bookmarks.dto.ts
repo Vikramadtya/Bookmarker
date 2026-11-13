@@ -1,4 +1,6 @@
 import {
+  IsBooleanString,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -6,6 +8,9 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export const SORTS = ['newest', 'oldest', 'title', 'site', 'opened', 'manual'];
 
 export class ListBookmarksDto {
   @IsOptional()
@@ -13,9 +18,10 @@ export class ListBookmarksDto {
   @MaxLength(2000)
   folderId?: string;
 
+  /** Free text plus operators, e.g. `rust tag:dev is:unread saved:7d`. */
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(500)
   q?: string;
 
   @IsOptional()
@@ -25,10 +31,25 @@ export class ListBookmarksDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @MaxLength(100)
   tag?: string;
 
   @IsOptional()
+  @IsIn(SORTS)
+  sort?: string;
+
+  /** `true` only pinned, `false` only unpinned; omitted both. */
+  @IsOptional()
+  @IsBooleanString()
+  pinned?: string;
+
+  /** `true`: the triage queue (unread and not snoozed), oldest first. */
+  @IsOptional()
+  @IsBooleanString()
+  triage?: string;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
@@ -36,6 +57,6 @@ export class ListBookmarksDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(400)
   cursor?: string;
 }
