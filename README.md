@@ -11,6 +11,15 @@ This document serves as an **Onboarding Guide** for new engineers. It details th
 ## 🚀 Features
 
 - **Smart Organization:** Group bookmarks into infinitely nestable folders and collections.
+- **Inbox & Triage:** Every save lands unread. A keyboard-driven triage view (archive, mark read, snooze, move, tag) works through the pile; statuses are Unread, Reading, Done and Archived.
+- **Smart Views & Search Syntax:** Save any search as a sidebar view. Operators: `tag:dev/rust`, `-tag:old`, `site:github.com`, `is:unread|fav|pinned|dead|article|archived`, `saved:7d`, `opened:30d`, `stale:180d`.
+- **Tags that scale:** Nested tags (`dev/rust`), counts, colors, rename and merge.
+- **Suggestions:** Tags and a folder are suggested for each new save from your own habits; with `ANTHROPIC_API_KEY` set, Claude also writes a short summary.
+- **Cleanup tools:** Duplicate detection (ignores tracking parameters) with merge, dead-link view, weekly digest.
+- **Capture anywhere:** Bookmarklet, browser extension (`extension/`), phone share menu (installed PWA), and email-to-save.
+- **Import / export:** HTML, JSON and CSV (browsers, Raindrop, Pinboard, Pocket).
+- **Reader:** Highlights with notes, saved copies of articles, adjustable typography.
+- **Sharing:** Public collections with link previews and an RSS feed.
 - **Automatic Metadata Extraction:** Instantly saves bookmarks, while a background job scrapes the target URL for title, description, and favicon.
 - **Real-time Updates:** The UI live-updates via WebSockets the moment background scraping completes.
 - **Privacy & Security:** Lock specific folders with passwords to protect sensitive collections.

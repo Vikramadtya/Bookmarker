@@ -13,13 +13,24 @@ import {
   findCachedBookmark,
   patchBookmark,
   removeBookmarks,
+  resortManualLists,
 } from "./bookmarkCache";
 
 const PAGE_SIZE = 50;
 
 const flattenPages = (data) => data.pages.flatMap((page) => page.items);
 
-function toQueryString({ folderId, q, fields, tag, cursor, limit }) {
+function toQueryString({
+  folderId,
+  q,
+  fields,
+  tag,
+  sort,
+  pinned,
+  triage,
+  cursor,
+  limit,
+}) {
   const params = new URLSearchParams();
   if (folderId && folderId !== "root") params.set("folderId", folderId);
   if (q) {
@@ -27,6 +38,9 @@ function toQueryString({ folderId, q, fields, tag, cursor, limit }) {
     if (fields?.length) params.set("fields", fields.join(","));
   }
   if (tag) params.set("tag", tag);
+  if (sort && sort !== "newest") params.set("sort", sort);
+  if (pinned !== undefined) params.set("pinned", String(pinned));
+  if (triage) params.set("triage", "true");
   if (cursor) params.set("cursor", cursor);
   if (limit) params.set("limit", String(limit));
   const qs = params.toString();
@@ -36,13 +50,31 @@ function toQueryString({ folderId, q, fields, tag, cursor, limit }) {
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 /** Infinite, cursor-paginated list; `data` is the flattened array of loaded bookmarks. */
-export function useBookmarks({ folderId, q = "", fields = [], tag = "" }) {
+export function useBookmarks({
+  folderId,
+  q = "",
+  fields = [],
+  tag = "",
+  sort = "newest",
+  pinned,
+  triage = false,
+  enabled = true,
+}) {
   return useInfiniteQuery({
-    queryKey: bookmarkKeys.list({ folderId, q, fields: fields.join(","), tag }),
+    enabled,
+    queryKey: bookmarkKeys.list({
+      folderId,
+      q,
+      fields: fields.join(","),
+      tag,
+      sort,
+      pinned,
+      triage,
+    }),
     initialPageParam: undefined,
     queryFn: ({ pageParam }) =>
       makeApiRequest({
-        url: `${BASE_URL}/bookmarks${toQueryString({ folderId, q, fields, tag, cursor: pageParam, limit: PAGE_SIZE })}`,
+        url: `${BASE_URL}/bookmarks${toQueryString({ folderId, q, fields, tag, sort, pinned, triage, cursor: pageParam, limit: PAGE_SIZE })}`,
         headers: folderTokenHeaders(folderId),
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -84,7 +116,8 @@ export function useTags() {
   return useQuery({
     queryKey: ["tags"],
     staleTime: 5 * 60_000,
-    queryFn: () => makeApiRequest({ url: `${BASE_URL}/bookmarks/tags` }),
+    // [{ tag, count, color }], nested tags appear as "parent/child"
+    queryFn: () => makeApiRequest({ url: `${BASE_URL}/tags` }),
   });
 }
 
@@ -102,6 +135,7 @@ export function useCreateBookmark() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: bookmarkKeys.all });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["counts"] });
       toast.success("Bookmark saved", {
         description: "Metadata is being extracted in the background.",
       });
@@ -119,7 +153,10 @@ export function useUpdateBookmark() {
         body: data,
       }),
     // Show the change immediately; roll back by refetching if the server rejects it.
-    onMutate: ({ id, data }) => patchBookmark(queryClient, id, data),
+    onMutate: ({ id, data }) => {
+      patchBookmark(queryClient, id, data);
+      if ("position" in data) resortManualLists(queryClient);
+    },
     onError: (_error, { id }) => {
       queryClient.invalidateQueries({ queryKey: bookmarkKeys.all });
       queryClient.invalidateQueries({ queryKey: bookmarkKeys.detail(id) });
@@ -128,7 +165,14 @@ export function useUpdateBookmark() {
       patchBookmark(queryClient, id, updated);
       if ("tags" in data) queryClient.invalidateQueries({ queryKey: ["tags"] });
       // Lists whose membership depends on the changed field must be re-evaluated.
-      const affectsMembership = "folderId" in data;
+      const affectsMembership =
+        "folderId" in data ||
+        "status" in data ||
+        "pinned" in data ||
+        "snoozedUntil" in data ||
+        "position" in data;
+      if ("status" in data || "folderId" in data)
+        queryClient.invalidateQueries({ queryKey: ["counts"] });
       queryClient.invalidateQueries({
         queryKey: bookmarkKeys.all,
         refetchType: "active",

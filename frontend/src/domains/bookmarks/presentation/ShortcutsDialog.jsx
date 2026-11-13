@@ -25,8 +25,22 @@ const GROUPS = [
       [["F"], "Toggle favorite"],
       [["E"], "Edit"],
       [["M"], "Move to folder"],
+      [["P"], "Pin or unpin"],
+      [["R"], "Mark as read"],
+      [["A"], "Archive or restore"],
       [["X"], "Select for bulk actions"],
       [["D"], "Delete (with undo)"],
+    ],
+  },
+  {
+    title: "In triage",
+    items: [
+      [["A"], "Archive"],
+      [["R"], "Mark read"],
+      [["S"], "Snooze for a week"],
+      [["M", "T"], "Move · tag"],
+      [["U"], "Undo the last action"],
+      [["→"], "Skip"],
     ],
   },
   {

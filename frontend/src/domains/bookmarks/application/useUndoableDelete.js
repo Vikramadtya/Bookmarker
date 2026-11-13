@@ -61,6 +61,7 @@ export function useUndoableDelete() {
           });
           removeBookmarks(queryClient, ids);
           queryClient.invalidateQueries({ queryKey: ["tags"] });
+          queryClient.invalidateQueries({ queryKey: ["counts"] });
         } finally {
           release(); // on failure the bookmarks reappear
         }

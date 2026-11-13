@@ -15,8 +15,9 @@ export default function DataTab({
           Data Management
         </h3>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Export or import your bookmarks using the universal Netscape HTML
-          format.
+          Move your bookmarks in or out. Import understands browser exports
+          (HTML), Raindrop, Pinboard and Pocket (HTML, JSON or CSV); the file
+          type is detected for you.
         </p>
       </div>
 
@@ -27,17 +28,22 @@ export default function DataTab({
               Export Bookmarks
             </h4>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Download all your folders and bookmarks as an HTML file.
+              Download everything with your folders, tags and read status.
             </p>
           </div>
-          <button
-            onClick={() => exportData.mutate()}
-            disabled={exportData.isPending}
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" />
-            {exportData.isPending ? "Exporting..." : "Export HTML"}
-          </button>
+          <div className="flex shrink-0 flex-col gap-1.5">
+            {["html", "json", "csv"].map((format) => (
+              <button
+                key={format}
+                onClick={() => exportData.mutate(format)}
+                disabled={exportData.isPending}
+                className="flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                {format.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-start justify-between rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -46,13 +52,15 @@ export default function DataTab({
               Import Bookmarks
             </h4>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Upload a Netscape Bookmark HTML file to add to your collection.
+              Upload an export from your browser, Raindrop, Pinboard or Pocket.
+              Imported links count as already read, and links you saved before
+              are skipped.
             </p>
           </div>
           <div>
             <input
               type="file"
-              accept=".html,.htm"
+              accept=".html,.htm,.json,.csv"
               className="hidden"
               ref={fileInputRef}
               onChange={handleFileChange}
@@ -63,7 +71,7 @@ export default function DataTab({
               className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             >
               <Upload className="h-4 w-4" />
-              {importData.isPending ? "Importing..." : "Import HTML"}
+              {importData.isPending ? "Importing..." : "Import file"}
             </button>
           </div>
         </div>

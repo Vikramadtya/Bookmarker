@@ -9,6 +9,10 @@
       "destination": "https://bookmarker-7vbd.onrender.com/auth/:path*"
     },
     {
+      "source": "/share/:path*",
+      "destination": "https://bookmarker-7vbd.onrender.com/share/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -26,6 +26,7 @@ import UnlockFolderModal from "./UnlockFolderModal";
 import FolderContextMenu from "./FolderContextMenu";
 import DroppableFolderItem from "./DroppableFolderItem";
 import CollectionItem from "./CollectionItem";
+import SmartViewsNav from "@/domains/organize/presentation/SmartViewsNav";
 
 export default function FolderSidebar() {
   const compact = useAppStore((s) => s.isSidebarCompact);
@@ -256,8 +257,10 @@ export default function FolderSidebar() {
             </div>
           )}
 
+          <SmartViewsNav compact={compact} />
+
           {isLoading ? (
-            <div className="px-3 text-xs text-slate-500">
+            <div className="mt-3 px-3 text-xs text-slate-500">
               Loading collections...
             </div>
           ) : (

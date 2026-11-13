@@ -10,12 +10,18 @@ import { useSearchParams } from "react-router-dom";
  */
 export function useFolderNavigation() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeFolder = searchParams.get("folder") || "root";
+  // A smart view or tool page is open instead of a folder.
+  const outsideFolders = searchParams.has("view") || searchParams.has("page");
+  const activeFolder = outsideFolders
+    ? "none"
+    : searchParams.get("folder") || "root";
 
   const [expandedCollections, setExpandedCollections] = useState({});
 
   const setActiveFolder = (id) => {
     setSearchParams((prev) => {
+      prev.delete("view");
+      prev.delete("page");
       prev.set("folder", id);
       return prev;
     });

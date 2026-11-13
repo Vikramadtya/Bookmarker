@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
-import { X, ExternalLink, Minus, Plus } from "lucide-react";
+import {
+  X,
+  ExternalLink,
+  Highlighter,
+  Minus,
+  Plus,
+  StickyNote,
+} from "lucide-react";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { Favicon } from "@/shared/ui/Favicon";
 import { hostnameOf } from "./bookmarkText";
+import { applyHighlights } from "./readerHighlights";
+import { useHighlights } from "@/domains/organize/application/useOrganize";
 
 const PREFS_KEY = "reader-prefs";
 const SIZES = [15, 16, 17, 18, 20, 22];
@@ -35,6 +44,12 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef(null);
+  const articleRef = useRef(null);
+  const [selection, setSelection] = useState(null); // { text, x, y } of the current selection
+  const [noting, setNoting] = useState(false);
+  const [note, setNote] = useState("");
+  const { add } = useHighlights(bookmark?.id);
+  const highlights = bookmark?.highlights;
 
   const html = useMemo(
     () => DOMPurify.sanitize(bookmark?.content ?? ""),
@@ -57,7 +72,40 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, onClose]);
 
+  // Mark saved highlights in the article whenever the text or the list changes.
+  useLayoutEffect(() => {
+    if (isOpen) applyHighlights(articleRef.current, highlights ?? []);
+  }, [isOpen, html, highlights, prefs.serif]);
+
   if (!isOpen || !bookmark) return null;
+
+  const captureSelection = () => {
+    const sel = window.getSelection();
+    const text = sel?.toString().replace(/\s+/g, " ").trim() ?? "";
+    const inArticle =
+      sel?.rangeCount > 0 &&
+      articleRef.current?.contains(sel.getRangeAt(0).commonAncestorContainer);
+    if (!text || text.length < 3 || !inArticle) {
+      setSelection(null);
+      setNoting(false);
+      return;
+    }
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    setSelection({
+      text: text.slice(0, 1000),
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+    });
+  };
+
+  const saveHighlight = (withNote) => {
+    if (!selection) return;
+    add.mutate({ text: selection.text, note: withNote ? note.trim() : "" });
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
+    setNoting(false);
+    setNote("");
+  };
 
   const sizeIndex = SIZES.indexOf(prefs.size);
   const step = (delta) =>
@@ -164,7 +212,12 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
 
           <div
             ref={scrollRef}
-            onScroll={onScroll}
+            onScroll={(e) => {
+              onScroll(e);
+              setSelection(null);
+            }}
+            onMouseUp={captureSelection}
+            onKeyUp={captureSelection}
             className="flex-1 overflow-y-auto bg-white px-5 py-8 sm:px-10 sm:py-12 dark:bg-slate-950"
           >
             <div className="mx-auto max-w-[42rem]">
@@ -172,6 +225,7 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
                 {bookmark.title}
               </h1>
               <article
+                ref={articleRef}
                 style={{ fontSize: prefs.size, lineHeight: 1.75 }}
                 className={cn(
                   "prose prose-slate dark:prose-invert prose-headings:font-sans prose-headings:tracking-tight prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-img:rounded-2xl prose-p:my-[1.1em] max-w-none",
@@ -182,6 +236,50 @@ export default function ReaderView({ bookmark, isOpen, onClose }) {
             </div>
           </div>
         </m.div>
+
+        {selection && (
+          <div
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              left: Math.min(
+                Math.max(selection.x, 140),
+                window.innerWidth - 140
+              ),
+              top: Math.max(selection.y - 12, 12),
+              transform: "translate(-50%, -100%)",
+            }}
+            className="animate-pop shadow-lift z-[110] flex items-center gap-1 rounded-xl bg-slate-900 p-1 text-white"
+          >
+            {noting ? (
+              <input
+                autoFocus
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveHighlight(true)}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder="Add a note, Enter to save"
+                className="w-56 rounded-lg bg-white/10 px-2 py-1 text-xs outline-none placeholder:text-white/50"
+              />
+            ) : (
+              <>
+                <button
+                  onClick={() => saveHighlight(false)}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium hover:bg-white/10"
+                >
+                  <Highlighter className="h-3.5 w-3.5" /> Highlight
+                </button>
+                <button
+                  onClick={() => setNoting(true)}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium hover:bg-white/10"
+                >
+                  <StickyNote className="h-3.5 w-3.5" /> Note
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </m.div>
     </AnimatePresence>
   );

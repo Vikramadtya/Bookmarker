@@ -2,43 +2,116 @@ import { Loader2, Plus, SearchX } from "lucide-react";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import dayjs from "dayjs";
 import { useAppStore } from "@/store/useAppStore";
 import {
   useBookmarks,
   useUpdateBookmark,
 } from "@/domains/bookmarks/application/useBookmarks";
 import { useUndoableDelete } from "@/domains/bookmarks/application/useUndoableDelete";
-import { BookmarkListSkeleton } from "@/shared/ui/Skeleton";
-import { EmptyState } from "@/shared/ui/EmptyState";
+import {
+  useCounts,
+  useRecordOpen,
+} from "@/domains/organize/application/useOrganize";
 import { useFolders } from "@/domains/folders/application/useFolders";
 import { useDebounce } from "@/shared/hooks/useDebounce";
+import { BookmarkListSkeleton } from "@/shared/ui/Skeleton";
+import { EmptyState } from "@/shared/ui/EmptyState";
+import Onboarding from "@/domains/organize/presentation/Onboarding";
 
 import BookmarkListHeader from "./BookmarkListHeader";
 import BookmarkBulkActions from "./BookmarkBulkActions";
 import DraggableBookmark from "./DraggableBookmark";
 
-const ROW_HEIGHT = { list: 96, grid: 256 };
+const ROW_HEIGHT = {
+  comfortable: { list: 96, grid: 256 },
+  compact: { list: 60, grid: 256 },
+};
+const HEADER_HEIGHT = 36;
+const DATE_SORTS = ["newest", "oldest", "opened"];
 
-export default function BookmarkList({ activeFolder }) {
+const dayLabel = (date) => {
+  const d = dayjs(date);
+  if (d.isSame(dayjs(), "day")) return "Today";
+  if (d.isSame(dayjs().subtract(1, "day"), "day")) return "Yesterday";
+  if (d.isSame(dayjs(), "year")) return d.format("dddd, MMM D");
+  return d.format("MMM D, YYYY");
+};
+
+/** Group label for a bookmark, or null when grouping is off for this sort. */
+function groupLabeler(groupBy, sort) {
+  if (groupBy === "site" && sort === "site")
+    return (b) => b.domain || "Unknown site";
+  if (groupBy === "day" && DATE_SORTS.includes(sort))
+    return (b) => dayLabel(sort === "opened" ? b.lastOpenedAt : b.creationDate);
+  return null;
+}
+
+/** Items interleaved with section headers, in display order. */
+function buildRows({ pinned, items, label }) {
+  const rows = [];
+  if (pinned.length > 0) {
+    rows.push({ type: "header", key: "h-pinned", label: "Pinned" });
+    pinned.forEach((b) => rows.push({ type: "item", key: b.id, b }));
+    if (items.length > 0 && !label)
+      rows.push({ type: "header", key: "h-rest", label: "Everything else" });
+  }
+  let current = null;
+  for (const b of items) {
+    const group = label?.(b);
+    if (group != null && group !== current) {
+      current = group;
+      rows.push({ type: "header", key: `h-${group}-${b.id}`, label: group });
+    }
+    rows.push({ type: "item", key: b.id, b });
+  }
+  return rows;
+}
+
+function GroupHeader({ label }) {
+  return (
+    <div className="flex h-full items-end px-1 pb-1.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
+      {label}
+    </div>
+  );
+}
+
+export default function BookmarkList({ activeFolder, view }) {
   const { data: folders = [] } = useFolders();
+  const { data: counts } = useCounts();
 
   const selectedId = useAppStore((s) => s.selectedBookmarkId);
   const setSelectedId = useAppStore((s) => s.setSelectedBookmarkId);
   const searchQuery = useAppStore((s) => s.searchQuery);
+  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
   const searchFields = useAppStore((s) => s.searchFields);
   const selectedBookmarks = useAppStore((s) => s.selectedBookmarks);
   const toggleBookmarkSelection = useAppStore((s) => s.toggleBookmarkSelection);
   const viewMode = useAppStore((s) => s.viewMode);
   const setViewMode = useAppStore((s) => s.setViewMode);
+  const storedSort = useAppStore((s) => s.sort);
+  const setSort = useAppStore((s) => s.setSort);
+  const groupBy = useAppStore((s) => s.groupBy);
+  const density = useAppStore((s) => s.density);
   const pendingDeletes = useAppStore((s) => s.pendingDeletes);
   const openBookmarkModal = useAppStore((s) => s.openBookmarkModal);
   const openMoveModal = useAppStore((s) => s.openMoveModal);
-  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   const [selectedTag, setSelectedTag] = useState("");
-  useEffect(() => setSelectedTag(""), [activeFolder]);
+  const [pickedSort, setPickedSort] = useState(false);
+  useEffect(() => {
+    setSelectedTag("");
+    setPickedSort(false);
+  }, [activeFolder, view?.id]);
+
+  // A smart view brings its own order until the user picks one.
+  const sort = view?.sort && !pickedSort ? view.sort : storedSort;
+  const onSortChange = (value) => {
+    setPickedSort(true);
+    setSort(value);
+  };
 
   useHotkeys("v", () => setViewMode(viewMode === "list" ? "grid" : "list"), [
     viewMode,
@@ -48,34 +121,79 @@ export default function BookmarkList({ activeFolder }) {
     () =>
       Object.entries(searchFields)
         .filter(([, isActive]) => isActive)
-        .map(([field]) => field),
+        // Notes also cover highlights, and description covers the summary.
+        .flatMap(([field]) =>
+          field === "notes"
+            ? ["notes", "highlights"]
+            : field === "description"
+              ? ["description", "summary"]
+              : [field]
+        ),
     [searchFields]
   );
 
+  const folderId = view ? (view.folderId ?? "root") : activeFolder;
+  const q = [view?.q, debouncedQuery].filter(Boolean).join(" ");
+
+  // Pinned bookmarks sit above the list while browsing, not while searching.
+  const showPinned = !q && !selectedTag && !view;
+  const listParams = {
+    folderId,
+    q,
+    fields: activeFields,
+    tag: selectedTag,
+    sort,
+  };
+  const pinnedQuery = useBookmarks({
+    ...listParams,
+    sort: "manual",
+    pinned: true,
+    enabled: showPinned,
+  });
   const {
     data: loadedBookmarks = [],
     isLoading,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useBookmarks({
-    folderId: activeFolder,
-    q: debouncedQuery,
-    fields: activeFields,
-    tag: selectedTag,
-  });
+  } = useBookmarks({ ...listParams, pinned: showPinned ? false : undefined });
 
-  // Bookmarks inside their undo window are already gone from the UI.
-  const bookmarks = useMemo(
-    () =>
+  const visible = useCallback(
+    (list) =>
       pendingDeletes.size
-        ? loadedBookmarks.filter((b) => !pendingDeletes.has(b.id))
-        : loadedBookmarks,
-    [loadedBookmarks, pendingDeletes]
+        ? list.filter((b) => !pendingDeletes.has(b.id))
+        : list,
+    [pendingDeletes]
+  );
+  const pinned = useMemo(
+    () => (showPinned ? visible(pinnedQuery.data ?? []) : []),
+    [showPinned, pinnedQuery.data, visible]
+  );
+  const items = useMemo(
+    () => visible(loadedBookmarks),
+    [loadedBookmarks, visible]
+  );
+  const bookmarks = useMemo(() => [...pinned, ...items], [pinned, items]);
+
+  const label = groupLabeler(groupBy, sort);
+  const rows = useMemo(
+    () => buildRows({ pinned, items, label }),
+    // label is derived from groupBy and sort
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pinned, items, groupBy, sort]
   );
 
   const { mutate: updateBookmark } = useUpdateBookmark();
+  const recordOpen = useRecordOpen();
   const scheduleDelete = useUndoableDelete();
+
+  const openLink = useCallback(
+    (b) => {
+      window.open(b.bookmarkURL, "_blank", "noopener");
+      recordOpen.mutate(b.id);
+    },
+    [recordOpen]
+  );
 
   // Folder id -> "Parent / Child", built once instead of per row.
   const breadcrumbs = useMemo(() => {
@@ -112,21 +230,37 @@ export default function BookmarkList({ activeFolder }) {
     [scheduleDelete]
   );
 
+  const handleOpen = useCallback(
+    (e, b) => {
+      e.stopPropagation();
+      recordOpen.mutate(b.id);
+    },
+    [recordOpen]
+  );
+
   const firstFolderId = activeFolder.split(",")[0];
-  const folderName =
-    activeFolder === "root"
+  const title = view
+    ? view.name
+    : activeFolder === "root"
       ? "All Bookmarks"
       : activeFolder === "favorites"
         ? "Favorites"
         : folders.find((f) => f.id === firstFolderId)?.name || "Folder";
 
+  const compact = density === "compact";
   const scrollRef = useRef(null);
+  const sizeOf = (row) =>
+    row.type === "header"
+      ? HEADER_HEIGHT
+      : ROW_HEIGHT[density][viewMode === "grid" ? "grid" : "list"];
   const virtualizer = useVirtualizer({
-    count: bookmarks.length,
+    count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT[viewMode],
+    estimateSize: (i) => sizeOf(rows[i]),
     overscan: 10,
   });
+  // Row heights change with density and grouping.
+  useEffect(() => virtualizer.measure(), [virtualizer, density, rows.length]);
 
   // ── Keyboard navigation ────────────────────────────────────────────────────
   const selected = bookmarks.find((b) => b.id === selectedId);
@@ -145,26 +279,23 @@ export default function BookmarkList({ activeFolder }) {
           : current + delta
       )
     );
-    setSelectedId(bookmarks[next].id);
+    const id = bookmarks[next].id;
+    setSelectedId(id);
     if (viewMode === "list") {
-      virtualizer.scrollToIndex(next, { align: "auto" });
+      virtualizer.scrollToIndex(
+        rows.findIndex((r) => r.key === id),
+        { align: "auto" }
+      );
     } else {
       scrollRef.current
-        ?.querySelector(`[data-bookmark-id="${bookmarks[next].id}"]`)
+        ?.querySelector(`[data-bookmark-id="${id}"]`)
         ?.scrollIntoView({ block: "nearest" });
     }
   };
 
-  useHotkeys("j, down", () => moveSelection(1), { preventDefault: true }, [
-    bookmarks,
-    selectedId,
-    viewMode,
-  ]);
-  useHotkeys("k, up", () => moveSelection(-1), { preventDefault: true }, [
-    bookmarks,
-    selectedId,
-    viewMode,
-  ]);
+  const nav = [bookmarks, selectedId, viewMode, rows];
+  useHotkeys("j, down", () => moveSelection(1), { preventDefault: true }, nav);
+  useHotkeys("k, up", () => moveSelection(-1), { preventDefault: true }, nav);
   useHotkeys("n", () => openBookmarkModal("add"), { preventDefault: true });
   useHotkeys("/", () => document.getElementById("bookmark-search")?.focus(), {
     preventDefault: true,
@@ -183,6 +314,31 @@ export default function BookmarkList({ activeFolder }) {
       }),
     [selected]
   );
+  useHotkeys(
+    "p",
+    () =>
+      selected &&
+      updateBookmark({ id: selected.id, data: { pinned: !selected.pinned } }),
+    [selected]
+  );
+  useHotkeys(
+    "a",
+    () =>
+      selected &&
+      updateBookmark({
+        id: selected.id,
+        data: {
+          status: selected.status === "archived" ? "unread" : "archived",
+        },
+      }),
+    [selected]
+  );
+  useHotkeys(
+    "r",
+    () =>
+      selected && updateBookmark({ id: selected.id, data: { status: "done" } }),
+    [selected]
+  );
   useHotkeys("x", () => selected && toggleBookmarkSelection(selected.id), [
     selected,
   ]);
@@ -190,11 +346,7 @@ export default function BookmarkList({ activeFolder }) {
     selected,
     scheduleDelete,
   ]);
-  useHotkeys(
-    "o",
-    () => selected && window.open(selected.bookmarkURL, "_blank", "noopener"),
-    [selected]
-  );
+  useHotkeys("o", () => selected && openLink(selected), [selected, openLink]);
 
   // Load the next page when the end of the list scrolls into view.
   const sentinelRef = useRef(null);
@@ -211,6 +363,8 @@ export default function BookmarkList({ activeFolder }) {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, bookmarks.length]);
 
+  const canReorder = sort === "manual" && !q && viewMode === "list";
+
   const renderBookmark = (b, virtualItem, index) => (
     <DraggableBookmark
       key={b.id}
@@ -221,19 +375,38 @@ export default function BookmarkList({ activeFolder }) {
       virtualItem={virtualItem}
       index={index}
       viewMode={viewMode}
+      compact={compact}
+      canReorder={canReorder}
       onSelect={setSelectedId}
       onToggleSelect={handleToggleSelect}
       onToggleFavorite={handleToggleFavorite}
+      onOpen={handleOpen}
       onDelete={handleDeleteClick}
+      onArchive={() =>
+        updateBookmark({ id: b.id, data: { status: "archived" } })
+      }
+      onDone={() => updateBookmark({ id: b.id, data: { status: "done" } })}
     />
   );
+
+  const searching = Boolean(searchQuery || selectedTag);
+  const libraryEmpty =
+    !isLoading &&
+    counts?.total === 0 &&
+    !searching &&
+    !view &&
+    activeFolder === "root";
 
   return (
     <div className="relative flex w-full flex-col border-r border-slate-200 bg-slate-50/60 md:w-1/3 dark:border-slate-800 dark:bg-slate-950">
       <BookmarkListHeader
-        folderName={folderName}
+        folderName={title}
+        view={view}
+        folderId={folderId}
         selectedTag={selectedTag}
         setSelectedTag={setSelectedTag}
+        sort={sort}
+        onSortChange={onSortChange}
       />
 
       <div
@@ -242,8 +415,10 @@ export default function BookmarkList({ activeFolder }) {
       >
         {isLoading ? (
           <BookmarkListSkeleton viewMode={viewMode} />
+        ) : libraryEmpty ? (
+          <Onboarding />
         ) : bookmarks.length === 0 ? (
-          searchQuery || selectedTag ? (
+          searching ? (
             <EmptyState
               title={
                 searchQuery ? "No matching bookmarks" : "Nothing with this tag"
@@ -261,6 +436,11 @@ export default function BookmarkList({ activeFolder }) {
                   Clear filters
                 </button>
               }
+            />
+          ) : view ? (
+            <EmptyState
+              title={`Nothing in ${view.name}`}
+              description="Bookmarks that match this view show up here automatically."
             />
           ) : (
             <EmptyState
@@ -292,7 +472,15 @@ export default function BookmarkList({ activeFolder }) {
               gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
             }}
           >
-            {bookmarks.map((b, i) => renderBookmark(b, null, i))}
+            {rows.map((row, i) =>
+              row.type === "header" ? (
+                <div key={row.key} className="col-span-full h-9">
+                  <GroupHeader label={row.label} />
+                </div>
+              ) : (
+                renderBookmark(row.b, null, i)
+              )
+            )}
           </div>
         ) : (
           <div
@@ -303,8 +491,23 @@ export default function BookmarkList({ activeFolder }) {
             }}
           >
             {virtualizer.getVirtualItems().map((item) => {
-              const b = bookmarks[item.index];
-              return b ? renderBookmark(b, item, item.index) : null;
+              const row = rows[item.index];
+              if (!row) return null;
+              if (row.type === "header")
+                return (
+                  <div
+                    key={row.key}
+                    style={{
+                      position: "absolute",
+                      top: item.start,
+                      height: item.size,
+                      width: "100%",
+                    }}
+                  >
+                    <GroupHeader label={row.label} />
+                  </div>
+                );
+              return renderBookmark(row.b, item, item.index);
             })}
           </div>
         )}

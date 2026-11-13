@@ -1,8 +1,11 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { X, Link2, Sparkles, Loader2, Type } from "lucide-react";
 import * as z from "zod";
 import { useFolders } from "@/domains/folders/application/useFolders";
 import { useTags } from "@/domains/bookmarks/application/useBookmarks";
+import { useExistingBookmark } from "@/domains/organize/application/useOrganize";
+import { useNav } from "@/domains/organize/application/useNav";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
@@ -37,7 +40,9 @@ const ModalForm = ({
 }) => {
   const isEdit = !!initialData;
   const { data: folders = [] } = useFolders();
-  const { data: globalTags = [] } = useTags();
+  const { data: tagList = [] } = useTags();
+  const globalTags = useMemo(() => tagList.map((t) => t.tag), [tagList]);
+  const { goFolder, goView } = useNav();
 
   const subFolders = folders.filter((f) => f.parentId);
   const collections = folders.filter((f) => !f.parentId && !f.isInbox);
@@ -78,6 +83,10 @@ const ModalForm = ({
 
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
 
+  // Saving the same page twice is usually a mistake: say so while typing.
+  const typedUrl = useDebounce(watch("bookmarkURL") || "", 400);
+  const { data: existing } = useExistingBookmark(isEdit ? "" : typedUrl);
+  const duplicate = existing?.exists ? existing.bookmark : null;
   const currentComments = watch("comments") || [];
   const currentTags = watch("tags") || "";
 
@@ -165,6 +174,24 @@ const ModalForm = ({
               {errors.bookmarkURL && (
                 <p className="mt-1.5 text-[13px] text-red-500">
                   {errors.bookmarkURL.message}
+                </p>
+              )}
+              {duplicate && !errors.bookmarkURL && (
+                <p className="mt-2 flex flex-wrap items-center gap-x-2 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+                  You already saved this
+                  {duplicate.title ? ` as “${duplicate.title}”` : ""}.
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      duplicate.status === "archived"
+                        ? goView("builtin:archive")
+                        : goFolder(duplicate.folderId);
+                    }}
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    Go to it
+                  </button>
                 </p>
               )}
             </div>

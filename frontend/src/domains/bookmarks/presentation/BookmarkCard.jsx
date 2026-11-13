@@ -5,6 +5,7 @@ import {
   Trash2,
   Folder,
   AlertTriangle,
+  Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Favicon } from "@/shared/ui/Favicon";
@@ -20,6 +21,7 @@ export default function BookmarkCard({
   breadcrumb,
   onToggleSelect,
   onToggleFavorite,
+  onOpen,
   onDelete,
 }) {
   const pending = isPending(b);
@@ -86,14 +88,28 @@ export default function BookmarkCard({
                   : "text-slate-800 dark:text-slate-200"
               )}
             >
+              {b.status === "unread" && (
+                <span
+                  title="Unread"
+                  className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-px rounded-full bg-blue-500"
+                />
+              )}
               {displayTitle(b)}
+              {b.pinned && (
+                <Pin className="ml-1 inline h-3 w-3 -translate-y-px fill-current text-slate-400" />
+              )}
               {b.isDeadLink && (
                 <AlertTriangle className="ml-1 inline h-3.5 w-3.5 -translate-y-px text-red-500" />
               )}
             </p>
-            {b.description && (
+            {b.snippet && (
+              <p className="mt-1.5 line-clamp-3 rounded-md bg-amber-50 px-2 py-1 text-xs text-slate-600 dark:bg-amber-900/10 dark:text-slate-300">
+                {b.snippet}
+              </p>
+            )}
+            {!b.snippet && (b.summary || b.description) && (
               <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                {b.description}
+                {b.summary || b.description}
               </p>
             )}
           </>
@@ -123,7 +139,7 @@ export default function BookmarkCard({
           href={b.bookmarkURL}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => onOpen(e, b)}
           className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800 dark:hover:text-blue-400"
           title="Open link (O)"
         >

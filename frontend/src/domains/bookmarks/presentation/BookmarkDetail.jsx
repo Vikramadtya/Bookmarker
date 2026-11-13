@@ -22,6 +22,10 @@ import { cn } from "@/lib/utils";
 import BookmarkPreview from "./BookmarkPreview";
 import BookmarkNotes from "./BookmarkNotes";
 import BookmarkMetadata from "./BookmarkMetadata";
+import BookmarkStatusBar from "./BookmarkStatusBar";
+import BookmarkHighlights from "./BookmarkHighlights";
+import Suggestions from "@/domains/organize/presentation/Suggestions";
+import { useRecordOpen } from "@/domains/organize/application/useOrganize";
 import { displayTitle, hostnameOf, isPending, timeAgo } from "./bookmarkText";
 
 const ReaderView = lazy(() => import("./ReaderView"));
@@ -66,6 +70,7 @@ export default function BookmarkDetail() {
   const openMoveModal = useAppStore((s) => s.openMoveModal);
   const { data: bookmark } = useBookmark(selectedId);
   const { mutate: updateBookmark } = useUpdateBookmark();
+  const recordOpen = useRecordOpen();
   const [isReaderOpen, setIsReaderOpen] = useState(false);
 
   if (!bookmark) return <EmptyDetail />;
@@ -133,6 +138,31 @@ export default function BookmarkDetail() {
             </div>
           </div>
 
+          <BookmarkStatusBar bookmark={bookmark} />
+
+          {bookmark.isDeadLink && (
+            <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>This link no longer works.</span>
+              {bookmark.isArticle && (
+                <button
+                  onClick={() => setIsReaderOpen(true)}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Read the saved copy
+                </button>
+              )}
+              <a
+                href={`https://web.archive.org/web/*/${bookmark.bookmarkURL}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline underline-offset-2"
+              >
+                Find it on archive.org
+              </a>
+            </div>
+          )}
+
           {(bookmark.imageURL || pending) && (
             <Thumbnail
               bookmark={bookmark}
@@ -165,6 +195,7 @@ export default function BookmarkDetail() {
                 href={bookmark.bookmarkURL}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => recordOpen.mutate(bookmark.id)}
                 className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
               >
                 <span className="truncate">
@@ -184,12 +215,16 @@ export default function BookmarkDetail() {
               <Skeleton className="h-3.5 w-5/6" />
             </div>
           ) : (
-            bookmark.description && (
+            (bookmark.summary || bookmark.description) && (
               <p className="mb-6 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                {bookmark.description}
+                {bookmark.summary || bookmark.description}
               </p>
             )
           )}
+
+          <Suggestions bookmark={bookmark} className="mb-6" />
+
+          <BookmarkHighlights bookmark={bookmark} />
 
           <BookmarkNotes bookmark={bookmark} />
 

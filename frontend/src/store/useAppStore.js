@@ -1,6 +1,21 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
+const readPref = (key, fallback) => {
+  try {
+    return localStorage.getItem(`pref:${key}`) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+const writePref = (key, value) => {
+  try {
+    localStorage.setItem(`pref:${key}`, value);
+  } catch {
+    // preferences just won't persist
+  }
+};
+
 // Server data lives in React Query; this store only holds UI state.
 // Always read it with a selector (`useAppStore((s) => s.x)`) so a component
 // re-renders only when the slice it uses changes.
@@ -11,6 +26,37 @@ export const useAppStore = create(
       isSettingsModalOpen: false,
       viewMode: "list", // 'list' | 'grid'
       setViewMode: (mode) => set({ viewMode: mode }, false, "setViewMode"),
+
+      // How lists are ordered and laid out; remembered between visits.
+      sort: readPref("sort", "newest"),
+      groupBy: readPref("groupBy", "none"),
+      density: readPref("density", "comfortable"), // 'comfortable' | 'compact'
+      setSort: (sort) => {
+        writePref("sort", sort);
+        set({ sort }, false, "setSort");
+      },
+      // Grouping only makes sense when the order matches it, so pair the two.
+      setGroupBy: (groupBy) =>
+        set(
+          (s) => {
+            let sort = s.sort;
+            if (groupBy === "site") sort = "site";
+            if (
+              groupBy === "day" &&
+              !["newest", "oldest", "opened"].includes(sort)
+            )
+              sort = "newest";
+            writePref("groupBy", groupBy);
+            writePref("sort", sort);
+            return { groupBy, sort };
+          },
+          false,
+          "setGroupBy"
+        ),
+      setDensity: (density) => {
+        writePref("density", density);
+        set({ density }, false, "setDensity");
+      },
       toggleSidebar: () =>
         set(
           (s) => ({ isSidebarCompact: !s.isSidebarCompact }),
@@ -19,6 +65,14 @@ export const useAppStore = create(
         ),
       setSettingsModalOpen: (isOpen) =>
         set({ isSettingsModalOpen: isOpen }, false, "setSettingsModalOpen"),
+      // Which settings tab to show when the dialog opens.
+      settingsTab: "account",
+      openSettings: (tab = "account") =>
+        set(
+          { isSettingsModalOpen: true, settingsTab: tab },
+          false,
+          "openSettings"
+        ),
 
       // The open bookmark is stored by id; its data comes from the query cache.
       selectedBookmarkId: null,
@@ -85,7 +139,13 @@ export const useAppStore = create(
       setSearchQuery: (query) =>
         set({ searchQuery: query }, false, "setSearchQuery"),
       // Article content is not searched by default: it is large and slows every query.
-      searchFields: { title: true, description: true, notes: true, tags: true },
+      searchFields: {
+        title: true,
+        description: true,
+        notes: true,
+        tags: true,
+        content: false,
+      },
       toggleSearchField: (field) =>
         set(
           (s) => ({

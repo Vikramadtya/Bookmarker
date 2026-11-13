@@ -64,7 +64,7 @@ export default function PublicFolderModal({
                 readOnly
                 value={
                   user?.username && publicModalFolder.slug
-                    ? `${window.location.origin}/public/${user.username}/${publicModalFolder.slug}`
+                    ? `${window.location.origin}/share/${user.username}/${publicModalFolder.slug}`
                     : ""
                 }
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
@@ -72,7 +72,7 @@ export default function PublicFolderModal({
               <button
                 onClick={() => {
                   if (user?.username && publicModalFolder.slug) {
-                    const url = `${window.location.origin}/public/${user.username}/${publicModalFolder.slug}`;
+                    const url = `${window.location.origin}/share/${user.username}/${publicModalFolder.slug}`;
                     navigator.clipboard.writeText(url);
                     toast.success("Copied to clipboard!");
                   }
@@ -81,6 +81,16 @@ export default function PublicFolderModal({
               >
                 Copy Link
               </button>
+              {user?.username && publicModalFolder.slug && (
+                <a
+                  href={`${window.location.origin}/api/v1/shared/${user.username}/${publicModalFolder.slug}/rss`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-center text-xs font-medium text-slate-500 underline-offset-2 hover:text-blue-600 hover:underline"
+                >
+                  RSS feed for this collection
+                </a>
+              )}
             </div>
 
             <div className="mt-6 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800">

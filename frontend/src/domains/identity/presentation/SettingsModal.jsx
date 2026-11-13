@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, User, Download, AlertTriangle } from "lucide-react";
+import { X, User, Download, AlertTriangle, Zap } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/domains/identity/application/useAuth";
 import {
@@ -12,11 +12,13 @@ import {
 import AccountTab from "@/domains/identity/presentation/AccountTab";
 import DataTab from "@/domains/identity/presentation/DataTab";
 import DangerTab from "@/domains/identity/presentation/DangerTab";
+import CaptureTab from "@/domains/identity/presentation/CaptureTab";
 
 export default function SettingsModal() {
   const isSettingsModalOpen = useAppStore((s) => s.isSettingsModalOpen);
   const setSettingsModalOpen = useAppStore((s) => s.setSettingsModalOpen);
-  const [activeTab, setActiveTab] = useState("account");
+  const settingsTab = useAppStore((s) => s.settingsTab);
+  const [activeTab, setActiveTab] = useState(settingsTab);
 
   const { data: userDetails, isLoading: isUserLoading } = useAuth();
   const exportData = useExportData();
@@ -50,8 +52,8 @@ export default function SettingsModal() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const htmlContent = event.target.result;
-      importData.mutate(htmlContent);
+      // HTML, JSON and CSV are all accepted; the server detects the format.
+      importData.mutate(event.target.result);
     };
     reader.readAsText(file);
 
@@ -113,6 +115,17 @@ export default function SettingsModal() {
               Data Management
             </button>
             <button
+              onClick={() => setActiveTab("capture")}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                activeTab === "capture"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/50"
+              }`}
+            >
+              <Zap className="h-4 w-4" />
+              Capture
+            </button>
+            <button
               onClick={() => setActiveTab("danger")}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === "danger"
@@ -150,6 +163,8 @@ export default function SettingsModal() {
                 handleFileChange={handleFileChange}
               />
             )}
+
+            {activeTab === "capture" && <CaptureTab />}
 
             {activeTab === "danger" && (
               <DangerTab

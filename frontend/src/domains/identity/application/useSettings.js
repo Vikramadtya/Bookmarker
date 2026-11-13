@@ -17,21 +17,30 @@ export function useDeleteAllData() {
   });
 }
 
+const EXPORT_TYPES = {
+  html: "text/html",
+  json: "application/json",
+  csv: "text/csv",
+};
+
 export function useExportData() {
   return useMutation({
-    mutationFn: async () => {
-      const response = await makeApiRequest({
-        url: `${BASE_URL}/settings/export`,
+    mutationFn: async (format = "html") => ({
+      format,
+      data: await makeApiRequest({
+        url: `${BASE_URL}/settings/export?format=${format}`,
         method: "GET",
-      });
-      return response;
-    },
-    onSuccess: (data) => {
-      const blob = new Blob([data], { type: "text/html" });
+      }),
+    }),
+    onSuccess: ({ format, data }) => {
+      // The JSON export arrives already parsed.
+      const text =
+        typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      const blob = new Blob([text], { type: EXPORT_TYPES[format] });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `bookmarks_export_${new Date().toISOString().split("T")[0]}.html`;
+      a.download = `bookmarks_export_${new Date().toISOString().split("T")[0]}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -22,18 +22,31 @@ export default defineConfig({
         globPatterns: ["**/*.{html,css}"],
         // These are proxied to the backend. Without this the service worker
         // answers the Google login redirect with index.html and sign-in never starts.
-        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
+        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//, /^\/share\//],
       },
       manifest: {
         name: "Bookmarker",
         short_name: "Bookmarker",
+        // Lets installed phones send links here from the system Share menu.
+        share_target: {
+          action: "/save",
+          method: "GET",
+          params: { title: "title", text: "text", url: "url" },
+        },
         description: "Your modern bookmark manager",
         theme_color: "#ffffff",
         icons: [
           {
-            src: "favicon.ico",
-            sizes: "64x64 32x32 24x24 16x16",
-            type: "image/x-icon",
+            src: "/favicon/web-app-manifest-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/favicon/web-app-manifest-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
           },
         ],
       },

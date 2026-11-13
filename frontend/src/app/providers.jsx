@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { domAnimation, LazyMotion } from "framer-motion";
+import { LazyMotion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { makeApiRequest } from "@/lib/api";
@@ -132,7 +132,9 @@ export default function Providers({ children }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LazyMotion features={domAnimation}>
+      <LazyMotion
+        features={() => import("@/lib/motionFeatures").then((f) => f.default)}
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SessionExpiry />
           <RealtimeSync />

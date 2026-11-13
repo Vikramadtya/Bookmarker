@@ -6,6 +6,7 @@ import {
   Trash2,
   Folder,
   AlertTriangle,
+  Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Favicon } from "@/shared/ui/Favicon";
@@ -19,8 +20,10 @@ export default function BookmarkListItem({
   isActive,
   isSelected,
   breadcrumb,
+  compact,
   onToggleSelect,
   onToggleFavorite,
+  onOpen,
   onDelete,
 }) {
   const pending = isPending(b);
@@ -68,19 +71,38 @@ export default function BookmarkListItem({
                     : "text-slate-800 dark:text-slate-200"
                 )}
               >
+                {b.status === "unread" && (
+                  <span
+                    title="Unread"
+                    className="mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                  />
+                )}
                 <span className="truncate">{displayTitle(b)}</span>
+                {b.pinned && (
+                  <Pin className="h-3 w-3 shrink-0 fill-current text-slate-400" />
+                )}
                 {b.isDeadLink && (
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
                 )}
               </p>
-              <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-slate-500">
+              <p
+                className={cn(
+                  "flex items-center gap-1.5 truncate text-[11px] text-slate-500",
+                  !compact && "mt-0.5"
+                )}
+              >
                 <span className="truncate">{hostnameOf(b.bookmarkURL)}</span>
                 <span className="text-slate-300 dark:text-slate-600">·</span>
                 <span className="shrink-0">{timeAgo(b.creationDate)}</span>
               </p>
             </>
           )}
-          {breadcrumb && (
+          {b.snippet ? (
+            <p className="mt-1 line-clamp-1 text-[11px] text-slate-500 italic">
+              {b.snippet}
+            </p>
+          ) : null}
+          {breadcrumb && !compact && !b.snippet && (
             <div className="mt-1 flex min-w-0 items-center gap-1.5">
               <Folder className="h-3 w-3 shrink-0 stroke-[2] text-slate-400 dark:text-slate-500" />
               <span className="truncate text-[10px] font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
@@ -91,7 +113,7 @@ export default function BookmarkListItem({
         </div>
       </div>
 
-      {(b.imageURL || pending) && (
+      {(b.imageURL || pending) && !compact && (
         <div className="shrink-0 group-hover:hidden">
           <Thumbnail
             bookmark={b}
@@ -106,7 +128,7 @@ export default function BookmarkListItem({
           href={b.bookmarkURL}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => onOpen(e, b)}
           className="rounded-md p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800 dark:hover:text-blue-400"
           title="Open link (O)"
         >

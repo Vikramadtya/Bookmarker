@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import {
   DndContext,
   PointerSensor,
@@ -11,13 +11,19 @@ import { toast } from "sonner";
 import FolderSidebar from "@/domains/folders/presentation/FolderSideBar";
 import BookmarksView from "@/domains/bookmarks/presentation/BookmarksView";
 import ShortcutsDialog from "@/domains/bookmarks/presentation/ShortcutsDialog";
-import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
+import {
+  useBulkMoveBookmarks,
+  useUpdateBookmark,
+} from "@/domains/bookmarks/application/useBookmarks";
+import { positionForDrop } from "@/domains/bookmarks/application/bookmarkCache";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/domains/identity/application/useAuth";
 import { useAppStore } from "@/store/useAppStore";
 
 // Rarely-needed screens are fetched on first use instead of in the main bundle.
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const PublicCollectionView = lazy(() => import("@/pages/PublicCollectionView"));
+const SavePage = lazy(() => import("@/pages/SavePage"));
 const SettingsModal = lazy(
   () => import("@/domains/identity/presentation/SettingsModal")
 );
@@ -35,6 +41,8 @@ const Spinner = () => (
 
 function Workspace() {
   const { mutate: updateBookmark } = useUpdateBookmark();
+  const bulkMove = useBulkMoveBookmarks();
+  const queryClient = useQueryClient();
   const isSettingsOpen = useAppStore((s) => s.isSettingsModalOpen);
   const [isPaletteOpen, setPaletteOpen] = useState(false);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -53,15 +61,32 @@ function Workspace() {
   );
 
   const handleDragEnd = ({ active, over }) => {
-    // Dropping a bookmark onto a folder moves it there.
-    if (
-      active.data.current?.type === "bookmark" &&
-      over?.data.current?.type === "folder"
-    ) {
+    if (active.data.current?.type !== "bookmark" || !over) return;
+
+    // Dropping a bookmark onto a folder moves it, and the whole selection with it
+    // when the dragged bookmark is part of one.
+    if (over.data.current?.type === "folder") {
+      const { selectedBookmarks, clearBookmarkSelection } =
+        useAppStore.getState();
+      if (selectedBookmarks.has(active.id) && selectedBookmarks.size > 1) {
+        bulkMove.mutate(
+          { ids: [...selectedBookmarks], folderId: over.id },
+          { onSuccess: clearBookmarkSelection }
+        );
+        return;
+      }
       updateBookmark(
         { id: active.id, data: { folderId: over.id } },
         { onSuccess: () => toast.success("Moved bookmark") }
       );
+      return;
+    }
+
+    // Dropping onto another bookmark reorders, when the list is in manual order.
+    if (over.data.current?.type === "bookmark" && over.id !== active.id) {
+      const position = positionForDrop(queryClient, active.id, over.id);
+      if (position !== null)
+        updateBookmark({ id: active.id, data: { position } });
     }
   };
 
@@ -97,6 +122,13 @@ function ServerUnreachable({ onRetry }) {
 function Home() {
   const { data: user, isLoading, isError, refetch } = useAuth();
   if (isLoading) return <Spinner />;
+  // Returned from signing in with a link waiting to be saved.
+  if (
+    user &&
+    sessionStorage.getItem("pending-save") &&
+    location.pathname !== "/save"
+  )
+    return <Navigate to="/save" replace />;
   // Never show the sign-in page just because the check failed.
   if (isError) return <ServerUnreachable onRetry={refetch} />;
   return user ? <Workspace /> : <LandingPage />;
@@ -110,6 +142,7 @@ export default function App() {
           path="/public/:username/:slug"
           element={<PublicCollectionView />}
         />
+        <Route path="/save" element={<SavePage />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </Suspense>
