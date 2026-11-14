@@ -18,7 +18,15 @@ client.interceptors.response.use(
         error.response?.data?.message ||
         error.message ||
         "Something went wrong.";
-      toast.error(Array.isArray(message) ? message[0] : message);
+      // Many requests fail together when the server is unreachable: say it once.
+      if (!error.response) {
+        toast.error(
+          "Can't reach the server. Your changes will sync when it's back.",
+          {
+            id: "network-error",
+          }
+        );
+      } else toast.error(Array.isArray(message) ? message[0] : message);
     }
     return Promise.reject(error);
   }
