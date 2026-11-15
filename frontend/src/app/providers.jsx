@@ -33,7 +33,20 @@ function useServerWakeup() {
         () =>
           pill(
             <>
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+              <svg
+                width="14"
+                height="18"
+                viewBox="0 0 24 24"
+                className="shrink-0"
+                style={{ color: "#fff", overflow: "visible" }}
+                aria-hidden="true"
+              >
+                <path
+                  className="bm-ribbon"
+                  pathLength="60"
+                  d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"
+                />
+              </svg>
               Waiting for backend server to start. Give it a min to start...
             </>
           ),

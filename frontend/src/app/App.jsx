@@ -17,6 +17,7 @@ import {
 } from "@/domains/bookmarks/application/useBookmarks";
 import { positionForDrop } from "@/domains/bookmarks/application/bookmarkCache";
 import { useQueryClient } from "@tanstack/react-query";
+import { BookmarkSplash } from "@/shared/ui/BookmarkLoader";
 import { useAuth } from "@/domains/identity/application/useAuth";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -33,11 +34,7 @@ const CommandPalette = lazy(() =>
   }))
 );
 
-const Spinner = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-slate-950">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-700 border-t-white" />
-  </div>
-);
+const Spinner = BookmarkSplash;
 
 function Workspace() {
   const { mutate: updateBookmark } = useUpdateBookmark();
