@@ -1,3 +1,4 @@
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 import {
   BadRequestException,
   Inject,
@@ -111,9 +112,15 @@ export class BookmarksService {
     @Inject('IBookmarkRepository')
     private readonly bookmarksRepository: IBookmarkRepository,
     @Inject('AGENDA') private readonly agenda: Agenda,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async createBookmark(userId: string, dto: CreateBookmarkDto) {
+    await this.entitlements.assertLimit(
+      userId,
+      'bookmarks',
+      await this.countAll(userId),
+    );
     const needsScraping = !dto.title || !dto.description || !dto.logoURL;
     const bookmark = await this.bookmarksRepository.create({
       ...(dto as Partial<Bookmark>),
@@ -139,12 +146,20 @@ export class BookmarksService {
   /** Bulk insert used by the importers; skips pages the user already has. */
   async importBookmarks(userId: string, items: ImportItem[]) {
     const known = await this.bookmarksRepository.findExistingUrls(userId);
-    const fresh = items.filter((item) => {
-      const key = normalizeUrl(item.bookmarkURL);
-      if (known.has(key)) return false;
-      known.add(key);
-      return true;
-    });
+    const room = await this.entitlements.remaining(
+      userId,
+      'bookmarks',
+      await this.countAll(userId),
+    );
+    const fresh = items
+      .filter((item) => {
+        const key = normalizeUrl(item.bookmarkURL);
+        if (known.has(key)) return false;
+        known.add(key);
+        return true;
+      })
+      // Past the free plan's limit the rest of the file is left out.
+      .slice(0, room === Infinity ? undefined : room);
 
     const created = await this.bookmarksRepository.createMany(
       fresh.map((item) => ({
@@ -301,6 +316,11 @@ export class BookmarksService {
   // ─── Organizing ────────────────────────────────────────────────────────────
 
   /** Counts for the sidebar badges and the triage entry point. */
+  /** Every bookmark the user owns, archived ones included (what plan limits count). */
+  countAll(userId: string) {
+    return this.bookmarksRepository.count({ userId });
+  }
+
   async getCounts(userId: string) {
     const now = new Date();
     const live = { userId, status: { $ne: 'archived' } };

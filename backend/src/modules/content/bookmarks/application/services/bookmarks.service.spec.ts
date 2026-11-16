@@ -20,7 +20,13 @@ function setup(rows: Bookmark[] = []) {
     count: jest.fn().mockResolvedValue(0),
   } as any;
   const agenda = { now: jest.fn() } as any;
-  return { service: new BookmarksService(repo, agenda), repo };
+  const entitlements = {
+    assertLimit: jest.fn(),
+    assertFeature: jest.fn(),
+    isPro: jest.fn().mockResolvedValue(true),
+    remaining: jest.fn().mockResolvedValue(Infinity),
+  } as any;
+  return { service: new BookmarksService(repo, agenda, entitlements), repo };
 }
 
 const filterOf = (repo: any, call = 0) => repo.find.mock.calls[call][0];

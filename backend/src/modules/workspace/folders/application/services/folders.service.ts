@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 import { IFolderRepository } from '../../domain/repositories/folder.repository.interface';
 import { Folder } from '../../domain/entities/folder.entity';
 import { IBookmarkRepository } from '@content/bookmarks/domain/repositories/bookmark.repository.interface';
@@ -26,6 +27,7 @@ export class FoldersService {
     @Inject('IBookmarkRepository')
     private readonly bookmarksRepository: IBookmarkRepository,
     config: ConfigService,
+    private readonly entitlements: EntitlementsService,
   ) {
     this.secret = config.getOrThrow<string>('JWT_SECRET');
   }
@@ -33,6 +35,11 @@ export class FoldersService {
   // ─── CRUD ──────────────────────────────────────────────────────────────────
 
   async createFolder(userId: string, dto: CreateFolderDto): Promise<Folder> {
+    await this.entitlements.assertLimit(
+      userId,
+      'folders',
+      await this.countOwned(userId),
+    );
     if (dto.parentId) await this.assertValidParent(userId, null, dto.parentId);
     const { password, isLocked: _locked, ...rest } = dto;
     return this.createWithSlug(userId, {
@@ -61,6 +68,13 @@ export class FoldersService {
       if (!isDuplicateKey(err)) throw err;
       return this.foldersRepository.find({ userId }); // lost a creation race
     }
+  }
+
+  /** Collections the user made (the Inbox does not count towards limits). */
+  async countOwned(userId: string): Promise<number> {
+    return (await this.foldersRepository.find({ userId })).filter(
+      (f) => !f.isInbox,
+    ).length;
   }
 
   async getInbox(userId: string): Promise<Folder> {
@@ -113,6 +127,8 @@ export class FoldersService {
     }
 
     if (dto.isPublic !== undefined) {
+      if (dto.isPublic && !existing.isPublic)
+        await this.entitlements.assertFeature(userId, 'sharing');
       patch.isPublic = dto.isPublic;
       if (dto.isPublic && !existing.slug) {
         patch.slug = await this.nextSlug(userId, existing.name);

@@ -25,6 +25,7 @@ import {
 } from 'class-validator';
 import { CurrentUser } from '@core/common/decorators/current-user.decorator';
 import { SORTS } from '@content/bookmarks/presentation/http/dto/list-bookmarks.dto';
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 import { SavedView } from './saved-view.schema';
 
 const MAX_VIEWS = 50;
@@ -70,6 +71,7 @@ const present = (v: any) => ({
 export class ViewsController {
   constructor(
     @InjectModel(SavedView.name) private readonly model: Model<SavedView>,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get()
@@ -86,7 +88,9 @@ export class ViewsController {
   @Post()
   @ApiOperation({ summary: 'Save a search as a view' })
   async create(@CurrentUser('email') userId: string, @Body() dto: ViewDto) {
-    if ((await this.model.countDocuments({ userId })) >= MAX_VIEWS)
+    const have = await this.model.countDocuments({ userId });
+    await this.entitlements.assertLimit(userId, 'views', have);
+    if (have >= MAX_VIEWS)
       throw new BadRequestException(`You can save up to ${MAX_VIEWS} views`);
     const view = await this.model.create({ ...dto, userId } as any);
     return present(view.toObject());

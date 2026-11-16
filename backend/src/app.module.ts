@@ -15,6 +15,7 @@ import { UsersModule } from '@identity/users/users.module';
 import { SharedModule } from '@workspace/shared/shared.module';
 import { TagsModule } from '@content/tags/tags.module';
 import { ViewsModule } from '@workspace/views/views.module';
+import { BillingModule } from '@identity/billing/billing.module';
 import { PreferencesModule } from '@identity/preferences/preferences.module';
 import {
   getMongoUri,
@@ -104,6 +105,7 @@ import {
     TagsModule,
     ViewsModule,
     PreferencesModule,
+    BillingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

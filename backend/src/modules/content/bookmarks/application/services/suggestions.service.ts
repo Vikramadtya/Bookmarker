@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IBookmarkRepository } from '../../domain/repositories/bookmark.repository.interface';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
 import { AiService } from '@core/ai/ai.service';
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 import { domainOf } from '@core/common/url';
 
 export interface Suggestions {
@@ -26,6 +27,7 @@ export class SuggestionsService {
     private readonly bookmarks: IBookmarkRepository,
     private readonly folders: FoldersService,
     private readonly ai: AiService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async suggest(
@@ -39,12 +41,15 @@ export class SuggestionsService {
     const bump = (tag: string, score: number) =>
       !have.has(tag) && ranked.set(tag, (ranked.get(tag) ?? 0) + score);
 
-    const aiLabels = await this.ai.labelPage({
-      title: page.title || bookmark.title,
-      url: bookmark.url,
-      text: page.text,
-      existingTags: known,
-    });
+    // AI labelling is a Pro feature; free accounts still get the local suggestions below.
+    const aiLabels = !(await this.entitlements.isPro(userId))
+      ? null
+      : await this.ai.labelPage({
+          title: page.title || bookmark.title,
+          url: bookmark.url,
+          text: page.text,
+          existingTags: known,
+        });
     aiLabels?.tags.forEach((tag) => bump(tag, 10));
 
     // Tags you already use whose name shows up in the page.

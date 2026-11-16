@@ -8,6 +8,7 @@ import { IsBoolean } from 'class-validator';
 import { CurrentUser } from '@core/common/decorators/current-user.decorator';
 import { Preferences } from './preferences.schema';
 import { DigestService } from './digest.service';
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 
 class UpdatePreferencesDto {
   @IsBoolean()
@@ -24,6 +25,7 @@ export class PreferencesController {
   constructor(
     @InjectModel(Preferences.name) private readonly prefs: Model<Preferences>,
     private readonly digest: DigestService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get('preferences')
@@ -51,6 +53,8 @@ export class PreferencesController {
     @CurrentUser('email') userId: string,
     @Body() dto: UpdatePreferencesDto,
   ) {
+    if (dto.digestEmail)
+      await this.entitlements.assertFeature(userId, 'digest');
     await this.prefs.updateOne({ userId }, { $set: dto }, { upsert: true });
     return dto;
   }
@@ -58,6 +62,7 @@ export class PreferencesController {
   @Post('preferences/capture-token')
   @ApiOperation({ summary: 'Create or rotate the email-to-save token' })
   async rotate(@CurrentUser('email') userId: string) {
+    await this.entitlements.assertFeature(userId, 'emailIn');
     const captureToken = newToken();
     await this.prefs.updateOne(
       { userId },

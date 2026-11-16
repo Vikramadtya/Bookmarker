@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { BookmarksService } from '@content/bookmarks/application/services/bookmarks.service';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 import { Preferences } from './preferences.schema';
 import { toHttpUrl } from '../settings/importers';
 
@@ -52,6 +53,7 @@ export class InboundController {
     @InjectModel(Preferences.name) private readonly prefs: Model<Preferences>,
     private readonly bookmarks: BookmarksService,
     private readonly folders: FoldersService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private async ownerOf(token: string | undefined) {
@@ -120,6 +122,7 @@ export class InboundController {
     @Body() body: Record<string, unknown>,
   ) {
     const owner = await this.ownerOf(token);
+    await this.entitlements.assertFeature(owner.userId, 'emailIn');
 
     const text = BODY_FIELDS.map((f) =>
       typeof body?.[f] === 'string' ? (body[f] as string) : '',

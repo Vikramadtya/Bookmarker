@@ -24,10 +24,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
+    let code: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
+      code = (res as { code?: string }).code; // lets the app react to plan limits
       message =
         typeof res === 'string'
           ? res
@@ -65,6 +67,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         statusCode: status,
         timestamp: new Date().toISOString(),
         path,
+        ...(code && { code }),
         message:
           Array.isArray(message) && message.length === 1 ? message[0] : message,
       },

@@ -137,6 +137,7 @@ export function useCreateBookmark() {
         });
       } catch (error) {
         if (!isRetryable(error)) {
+          if (error.response?.status === 402) throw error; // the upgrade prompt is already showing
           const message = error.response?.data?.message;
           toast.error(
             (Array.isArray(message) ? message[0] : message) ||

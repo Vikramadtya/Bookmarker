@@ -32,8 +32,19 @@ function setup(folders: Folder[]) {
     moveByFolderIds: jest.fn(),
   } as any;
   const config = { getOrThrow: () => 'secret' } as any;
+  const entitlements = {
+    assertLimit: jest.fn(),
+    assertFeature: jest.fn(),
+    isPro: jest.fn().mockResolvedValue(true),
+    remaining: jest.fn().mockResolvedValue(Infinity),
+  } as any;
   return {
-    service: new FoldersService(foldersRepo, bookmarksRepo, config),
+    service: new FoldersService(
+      foldersRepo,
+      bookmarksRepo,
+      config,
+      entitlements,
+    ),
     foldersRepo,
     bookmarksRepo,
   };

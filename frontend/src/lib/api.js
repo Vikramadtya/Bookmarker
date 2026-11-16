@@ -1,6 +1,7 @@
 import axios from "axios";
 import { toast } from "sonner";
 import { logger } from "./logger";
+import { useAppStore } from "@/store/useAppStore";
 
 // The auth cookie is httpOnly, so requests only need `withCredentials`.
 const client = axios.create({ withCredentials: true });
@@ -12,6 +13,19 @@ client.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401) window.dispatchEvent(new Event("unauthorized"));
+
+    // The plan does not allow this: offer the upgrade instead of a bare error.
+    if (status === 402) {
+      toast.error(error.response.data?.message || "This is part of Pro.", {
+        id: "upgrade",
+        duration: 8000,
+        action: {
+          label: "See plans",
+          onClick: () => useAppStore.getState().openSettings("billing"),
+        },
+      });
+      return Promise.reject(error);
+    }
 
     if (!silent) {
       const message =

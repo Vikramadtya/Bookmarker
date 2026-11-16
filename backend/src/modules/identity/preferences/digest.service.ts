@@ -1,3 +1,4 @@
+import { EntitlementsService } from '@identity/billing/entitlements.service';
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -41,6 +42,7 @@ export class DigestService implements OnModuleInit {
     private readonly config: ConfigService,
     @InjectModel(Preferences.name) private readonly prefs: Model<Preferences>,
     @Inject('AGENDA') private readonly agenda: Agenda,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async onModuleInit() {
@@ -94,6 +96,8 @@ export class DigestService implements OnModuleInit {
       .exec();
     for (const { userId } of recipients) {
       try {
+        // The digest email is a Pro feature; a lapsed plan quietly stops it.
+        if (!(await this.entitlements.isPro(userId))) continue;
         const digest = await this.build(userId);
         if (digest.unread === 0 && digest.savedThisWeek === 0) continue;
         await this.transporter.sendMail({
