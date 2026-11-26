@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, ImageOff, Loader2, MonitorOff } from "lucide-react";
 import { makeApiRequest } from "@/lib/api";
@@ -11,8 +11,25 @@ const TABS = [
   ["preview", "Interactive Preview"],
 ];
 
-const screenshotUrl = (url) =>
-  `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`;
+// mShots (WordPress.com) answers with a small placeholder while it is still
+// taking the picture, so a placeholder means "ask again shortly".
+const PLACEHOLDER_WIDTH = 400;
+const RETRIES = 6;
+const RETRY_MS = 4000;
+
+function screenshotUrl(url, attempt) {
+  let page = url;
+  try {
+    // Credentials and fragments are not needed to take the picture.
+    const u = new URL(url);
+    u.username = u.password = u.hash = "";
+    page = u.toString();
+  } catch {
+    /* send it as it is */
+  }
+  const retry = attempt ? `&retry=${attempt}` : "";
+  return `https://s0.wp.com/mshots/v1/${encodeURIComponent(page)}?w=1280&h=800${retry}`;
+}
 
 function Notice({ icon: Icon, title, children, url }) {
   return (
@@ -34,45 +51,61 @@ function Notice({ icon: Icon, title, children, url }) {
   );
 }
 
-/** A screenshot from a screenshot service, else the page's own preview image. */
+/** A screenshot from mShots, else the page's own preview image. */
 function Screenshot({ bookmark }) {
   const [stage, setStage] = useState("shot"); // shot | image | none
+  const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
   const url = bookmark.bookmarkURL;
+
   const fail = () => {
     setStage(stage === "shot" && bookmark.imageURL ? "image" : "none");
     setLoading(true);
+  };
+  const loaded = (e) => {
+    if (stage !== "shot" || e.target.naturalWidth > PLACEHOLDER_WIDTH)
+      return setLoading(false);
+    if (attempt >= RETRIES) return fail();
+    timer.current = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
   };
 
   if (stage === "none")
     return (
       <Notice icon={ImageOff} title="No screenshot available" url={url}>
-        The free screenshot service only allows a few a day, and this page has
-        no preview image of its own.
+        A picture of this page couldn’t be taken, and it has no preview image of
+        its own.
       </Notice>
     );
 
   return (
     <div className="relative h-full min-h-64">
       {loading && (
-        <Loader2 className="absolute top-1/2 left-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 animate-spin text-slate-400" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          {attempt > 0 && (
+            <p className="text-xs text-slate-500">Taking a screenshot…</p>
+          )}
+        </div>
       )}
       <img
         key={stage}
-        src={stage === "shot" ? screenshotUrl(url) : bookmark.imageURL}
+        src={stage === "shot" ? screenshotUrl(url, attempt) : bookmark.imageURL}
         alt="Website preview"
         referrerPolicy="no-referrer"
-        onLoad={() => setLoading(false)}
+        onLoad={loaded}
         onError={fail}
         className={cn(
-          "h-full w-full",
-          stage === "shot" ? "object-cover object-top" : "object-contain"
+          "h-full w-full transition-opacity",
+          stage === "shot" ? "object-cover object-top" : "object-contain",
+          loading && "opacity-0"
         )}
       />
       {stage === "image" && !loading && (
         <p className="absolute inset-x-0 bottom-0 bg-slate-900/70 px-3 py-2 text-center text-xs text-white">
-          Showing the page’s preview image. A live screenshot isn’t available
-          right now (the free service has a daily limit).
+          Showing the page’s preview image, because a screenshot couldn’t be
+          taken.
         </p>
       )}
     </div>
