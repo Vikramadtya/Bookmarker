@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import sanitizeHtml from 'sanitize-html';
+import { plainText } from '@core/common/plain-text';
 import {
   IBookmarkRepository,
   ScrapeResult,
@@ -163,8 +164,7 @@ export class ScrapeService implements OnModuleInit {
 
   private parseHtml(html: string, baseUrl: string): Metadata {
     const $ = cheerio.load(html);
-    const text = (value: string | undefined) =>
-      sanitizeHtml((value ?? '').trim(), { allowedTags: [] }).slice(0, 500);
+    const text = (value: string | undefined) => plainText(value).slice(0, 500);
 
     const title =
       $('meta[property="og:title"]').attr('content') ||
