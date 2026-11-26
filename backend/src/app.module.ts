@@ -23,6 +23,7 @@ import {
   isProduction,
   validateEnv,
 } from '@core/config/app.config';
+import { safeLogPath } from '@core/common/log-path';
 
 @Module({
   imports: [
@@ -58,6 +59,19 @@ import {
         return {
           pinoHttp: {
             level: logLevel,
+            // Every log line made during a request carries it. Headers hold the
+            // session cookie and tokens, and query strings can hold secrets, so
+            // only the id, method and path are kept.
+            serializers: {
+              req: (req: { id: unknown; method: string; url: string }) => ({
+                id: req.id,
+                method: req.method,
+                url: safeLogPath(req.url),
+              }),
+              res: (res: { statusCode: number }) => ({
+                statusCode: res.statusCode,
+              }),
+            },
             transport: isProd
               ? undefined
               : {

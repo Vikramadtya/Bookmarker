@@ -42,6 +42,13 @@ export function useClaudeActions() {
         api("/session", { method: "POST", body: { includeNotes } }),
       onSuccess: refresh,
     }),
+    disconnect: useMutation({
+      mutationFn: () => api("/connection", { method: "DELETE" }),
+      onSuccess: () => {
+        refresh();
+        toast.success("Claude disconnected");
+      },
+    }),
     end: useMutation({
       mutationFn: (id) => api(`/session/${id}`, { method: "DELETE" }),
       onSuccess: refresh,

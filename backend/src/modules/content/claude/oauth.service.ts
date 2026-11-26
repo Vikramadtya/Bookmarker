@@ -1,12 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import { getFrontendUrl } from '@core/config/app.config';
-import { OAuthClient, OAuthGrant, OrganizeSession } from './schemas';
+import { OAuthClient, OAuthGrant } from './schemas';
 import {
   CODE_TTL_MS,
+  CONNECTION_TTL_MS,
   REQUEST_TTL_MS,
   SCOPE,
   isAllowedRedirect,
@@ -30,19 +31,21 @@ export class OAuthError extends Error {
 
 /**
  * The smallest OAuth 2.1 server that Claude needs: public clients, the
- * authorization code flow with PKCE, and access tokens that live no longer than
- * the session the user started. There are deliberately no refresh tokens.
+ * authorization code flow with PKCE, and long-lived access tokens that the user
+ * can revoke. A token identifies the account; it can read only while that user
+ * has a session open. There are deliberately no refresh tokens.
  */
 @Injectable()
 export class OAuthService {
+  /** Sign-in steps are logged without codes, tokens or email addresses. */
+  private readonly logger = new Logger(OAuthService.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly organize: OrganizeService,
     @InjectModel(OAuthClient.name)
     private readonly clients: Model<OAuthClient>,
     @InjectModel(OAuthGrant.name) private readonly grants: Model<OAuthGrant>,
-    @InjectModel(OrganizeSession.name)
-    private readonly sessions: Model<OrganizeSession>,
   ) {}
 
   /** The public address Claude reaches the app at. */
@@ -111,6 +114,7 @@ export class OAuthService {
       name,
       redirectUris: uris as string[],
     });
+    this.logger.log(`Registered client ${client.clientId}`);
     return {
       client_id: client.clientId,
       client_id_issued_at: Math.floor(Date.now() / 1000),
@@ -131,14 +135,22 @@ export class OAuthService {
       ? await this.clients.findOne({ clientId: String(query.client_id) }).lean()
       : null;
     const redirectUri = String(query.redirect_uri ?? '');
-    if (!client || !redirectMatches(client.redirectUris, redirectUri))
+    if (!client || !redirectMatches(client.redirectUris, redirectUri)) {
+      this.logger.warn(
+        `Sign-in refused: ${client ? 'return address not registered' : 'unknown client'}`,
+      );
       throw new OAuthError(
         'invalid_request',
         'Unknown application or return address.',
       );
+    }
 
-    const fail = (error: string) =>
-      this.callback(redirectUri, { error, state: query.state });
+    const fail = (error: string) => {
+      this.logger.warn(
+        `Sign-in refused for client ${client.clientId}: ${error}`,
+      );
+      return this.callback(redirectUri, { error, state: query.state });
+    };
     if (query.response_type !== 'code')
       return fail('unsupported_response_type');
     if (query.code_challenge_method !== 'S256' || !query.code_challenge)
@@ -156,6 +168,7 @@ export class OAuthService {
       state: query.state ? String(query.state) : undefined,
       expiresAt: new Date(Date.now() + REQUEST_TTL_MS),
     });
+    this.logger.log(`Sign-in started by client ${client.clientId}`);
     const frontend = getFrontendUrl(this.config).replace(/\/+$/, '');
     return `${frontend}/connect?request=${key}`;
   }
@@ -220,6 +233,9 @@ export class OAuthService {
         'invalid_request',
         'This request has expired. Connect again from Claude.',
       );
+    this.logger.log(
+      `Sign-in ${allow ? 'approved' : 'declined'} for client ${request.clientId}`,
+    );
     if (!allow)
       return this.callback(request.redirectUri!, {
         error: 'access_denied',
@@ -233,7 +249,6 @@ export class OAuthService {
       clientId: request.clientId,
       redirectUri: request.redirectUri,
       codeChallenge: request.codeChallenge,
-      sessionId: session!._id,
       userId,
       expiresAt: new Date(Date.now() + CODE_TTL_MS),
     });
@@ -242,15 +257,14 @@ export class OAuthService {
 
   async exchange(body: Record<string, string | undefined>) {
     if (body.grant_type !== 'authorization_code')
-      throw new OAuthError(
+      throw this.rejected(
         body.grant_type === 'refresh_token'
           ? 'invalid_grant'
           : 'unsupported_grant_type',
-        'Only the authorization code grant is supported.',
+        `grant type ${String(body.grant_type).slice(0, 40)}`,
       );
-    const invalid = () =>
-      new OAuthError('invalid_grant', 'The code is not valid.');
-    if (!body.code || !body.code_verifier || !body.client_id) throw invalid();
+    if (!body.code || !body.code_verifier || !body.client_id)
+      throw this.rejected('invalid_grant', 'missing parameters');
 
     const key = sha256(String(body.code));
     // Marking it used in the same step means a code works once.
@@ -261,54 +275,47 @@ export class OAuthService {
         { returnDocument: 'before' },
       )
       .lean();
-    if (!code) throw invalid();
+    if (!code) throw this.rejected('invalid_grant', 'unknown or expired code');
+    const owner = { userId: code.userId, clientId: code.clientId };
     if (code.used) {
       // A replayed code means it leaked: withdraw what it produced.
-      await this.grants.deleteMany({
-        sessionId: code.sessionId,
-        kind: 'token',
-      });
-      throw invalid();
+      await this.grants.deleteMany({ ...owner, kind: 'token' });
+      throw this.rejected('invalid_grant', 'code used twice');
     }
-    if (
-      code.clientId !== body.client_id ||
-      code.redirectUri !== body.redirect_uri ||
-      !verifyPkce(String(body.code_verifier), code.codeChallenge!)
-    )
-      throw invalid();
+    if (code.clientId !== body.client_id)
+      throw this.rejected('invalid_grant', 'client mismatch');
+    if (code.redirectUri !== body.redirect_uri)
+      throw this.rejected('invalid_grant', 'return address mismatch');
+    if (!verifyPkce(String(body.code_verifier), code.codeChallenge!))
+      throw this.rejected('invalid_grant', 'PKCE verification failed');
     if (body.resource && body.resource !== this.resource)
-      throw new OAuthError('invalid_target', 'Unknown resource.');
-    const session = await this.organize.activeSession(code.sessionId!);
-    if (!session) throw invalid();
+      throw this.rejected('invalid_target', 'unknown resource');
 
     const token = randomToken();
-    // One connection per session: a new one replaces the old.
-    await this.grants.deleteMany({ sessionId: session._id, kind: 'token' });
+    // Reconnecting the same client replaces its earlier sign-in.
+    await this.grants.deleteMany({ ...owner, kind: 'token' });
     await this.grants.create({
+      ...owner,
       key: sha256(token),
       kind: 'token',
-      clientId: code.clientId,
-      sessionId: session._id,
-      userId: session.userId,
-      expiresAt: session.expiresAt,
+      expiresAt: new Date(Date.now() + CONNECTION_TTL_MS),
     });
-    await this.sessions.updateOne(
-      { _id: session._id },
-      { $set: { connectedAt: new Date() } },
-    );
+    this.logger.log(`Client ${code.clientId} connected`);
     return {
       access_token: token,
       token_type: 'Bearer',
-      expires_in: Math.max(
-        1,
-        Math.floor((session.expiresAt.getTime() - Date.now()) / 1000),
-      ),
+      expires_in: Math.floor(CONNECTION_TTL_MS / 1000),
       scope: SCOPE,
     };
   }
 
-  /** The session an access token opens, if it is still good. */
-  async sessionForToken(token: string) {
+  private rejected(error: string, why: string) {
+    this.logger.warn(`Token request refused: ${why}`);
+    return new OAuthError(error, 'The request could not be granted.');
+  }
+
+  /** Whose account an access token belongs to, if it is still good. */
+  async ownerOfToken(token: string) {
     const grant = await this.grants
       .findOne({
         key: sha256(token),
@@ -316,6 +323,6 @@ export class OAuthService {
         expiresAt: { $gt: new Date() },
       })
       .lean();
-    return grant ? this.organize.activeSession(grant.sessionId!) : null;
+    return grant ? { userId: grant.userId!, clientId: grant.clientId } : null;
   }
 }

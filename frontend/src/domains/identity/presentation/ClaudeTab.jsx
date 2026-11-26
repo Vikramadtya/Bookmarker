@@ -13,13 +13,13 @@ const primary =
 const secondary =
   "rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800";
 
-/** Start a one-time session, connect Claude to it, then review what it suggests. */
+/** Connect Claude once, start a session when you want a pass, then review. */
 export default function ClaudeTab() {
   const { data } = useClaudeSession();
-  const { start, end } = useClaudeActions();
+  const { start, end, disconnect } = useClaudeActions();
   const [includeNotes, setIncludeNotes] = useState(false);
   if (!data) return null;
-  const { session, connectorUrl } = data;
+  const { session, connection, connectorUrl } = data;
   const open = session?.status === "open";
   const suggestions = session
     ? session.counts.pending + session.counts.applied
@@ -37,8 +37,9 @@ export default function ClaudeTab() {
           <Bot className="h-5 w-5 text-blue-600" /> Organise with Claude
         </h3>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Connect your own Claude for one pass over your library. It suggests
-          tags, descriptions and folders, and you decide what to apply.
+          Connect your own Claude once. Whenever you start a session it can
+          suggest titles, tags, descriptions and folders, and you decide what to
+          apply.
         </p>
       </div>
 
@@ -70,29 +71,36 @@ export default function ClaudeTab() {
           </li>
           <li>Suggest changes. It cannot change, delete or share anything.</li>
           <li>Never see locked or hidden folders.</li>
-          <li>Access ends after one hour, or sooner if you end it.</li>
+          <li>
+            Read only while a session is open: up to one hour, or until you end
+            it.
+          </li>
         </ul>
       </div>
 
-      {open ? (
-        <div className={card}>
+      <div className={card}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
             <span
-              className={`h-2 w-2 rounded-full ${session.connected ? "bg-emerald-500" : "animate-pulse bg-amber-500"}`}
+              className={`h-2 w-2 rounded-full ${connection ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`}
             />
-            {session.connected
-              ? "Claude is connected"
-              : "Waiting for Claude to connect"}
+            {connection
+              ? `Claude is linked since ${new Date(connection.since).toLocaleDateString()}`
+              : "Claude is not linked yet"}
           </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Access ends at{" "}
-            {new Date(session.expiresAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-            {session.includeNotes && " · notes and highlights included"}
-          </p>
+          {connection && (
+            <button
+              onClick={() => disconnect.mutate()}
+              disabled={disconnect.isPending}
+              className={secondary}
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+        {!connection && (
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-600 dark:text-slate-300">
+            <li>Start a session below.</li>
             <li>
               In Claude, open Settings → Connectors and add a custom connector
               with this address:
@@ -112,16 +120,34 @@ export default function ClaudeTab() {
             <li>
               Press Connect, then Allow on the Bookmarker page that opens.
             </li>
-            <li>
-              Ask Claude: “Organise my Bookmarker library.” If the connector is
-              already added, reconnect it for this session.
-            </li>
           </ol>
+        )}
+      </div>
+
+      {open ? (
+        <div className={card}>
+          <p className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+            {session.connected ? "Claude is working" : "Session open"}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Ends at{" "}
+            {new Date(session.expiresAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {session.includeNotes && " · notes and highlights included"}
+          </p>
+          {connection && !session.connected && (
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Ask Claude: “Organise my Bookmarker library.”
+            </p>
+          )}
           <button
             onClick={() => end.mutate(session.id)}
             className={`${secondary} mt-4`}
           >
-            End access now
+            End session
           </button>
         </div>
       ) : (
@@ -150,7 +176,7 @@ export default function ClaudeTab() {
             disabled={start.isPending}
             className={`${primary} mt-3`}
           >
-            Start a one-hour session
+            Start a session
           </button>
           {session && suggestions === 0 && (
             <p className="mt-2 text-xs text-slate-400">

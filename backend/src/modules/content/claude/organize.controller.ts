@@ -64,8 +64,16 @@ export class OrganizeController {
   async current(@CurrentUser('email') userId: string) {
     return {
       connectorUrl: this.oauth.resource,
+      connection: await this.organize.connection(userId),
       session: await this.organize.current(userId),
     };
+  }
+
+  @Delete('connection')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Sign Claude out and close any open session' })
+  async disconnect(@CurrentUser('email') userId: string) {
+    await this.organize.disconnect(userId);
   }
 
   @Post('session')
@@ -76,7 +84,7 @@ export class OrganizeController {
   }
 
   @Delete('session/:id')
-  @ApiOperation({ summary: "End Claude's access now" })
+  @ApiOperation({ summary: 'Close this session now' })
   end(@CurrentUser('email') userId: string, @Param('id') id: string) {
     return this.organize.end(userId, id);
   }

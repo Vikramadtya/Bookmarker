@@ -7,6 +7,11 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 export const SESSION_TTL_MS = 60 * 60_000; // one hour of access, then it is over
 export const CODE_TTL_MS = 5 * 60_000;
 export const REQUEST_TTL_MS = 10 * 60_000;
+/**
+ * How long a connection lasts. A connection alone reads nothing: it works only
+ * while the user has a session open, and they can disconnect at any time.
+ */
+export const CONNECTION_TTL_MS = 90 * 24 * 60 * 60_000;
 export const PAGE_SIZE = 50;
 export const SCOPE = 'organize';
 

@@ -60,10 +60,9 @@ export class OrganizeService {
     return this.describe(session.toObject() as Session);
   }
 
-  /** Ends Claude's access. Suggestions already made stay for review. */
+  /** Ends reading access. The connection stays; suggestions already made stay for review. */
   async end(userId: string, sessionId: string) {
     const session = await this.owned(userId, sessionId);
-    await this.grants.deleteMany({ sessionId: session._id });
     const pending = await this.proposals.countDocuments({
       sessionId: session._id,
       status: 'pending',
@@ -83,7 +82,33 @@ export class OrganizeService {
     return this.describe(await this.expire(session));
   }
 
-  /** The run a new connection would attach to. */
+  /** Whether Claude holds a sign-in for this account, and since when. */
+  async connection(userId: string) {
+    const grant = await this.grants
+      .findOne({ userId, kind: 'token', expiresAt: { $gt: new Date() } })
+      .sort({ createdAt: -1 })
+      .lean<{ createdAt: Date; expiresAt: Date }>();
+    return grant
+      ? { since: grant.createdAt, expiresAt: grant.expiresAt }
+      : null;
+  }
+
+  /** Signs Claude out everywhere and closes any open session. */
+  async disconnect(userId: string) {
+    await this.grants.deleteMany({ userId });
+    const open = await this.sessions.find({ userId, status: 'open' }).lean();
+    for (const s of open) await this.end(userId, String(s._id));
+  }
+
+  /** Records that Claude has started using this session. */
+  async markUsed(sessionId: string) {
+    await this.sessions.updateOne(
+      { _id: sessionId, connectedAt: null },
+      { $set: { connectedAt: new Date() } },
+    );
+  }
+
+  /** The session Claude may read in right now, if the user started one. */
   async openSession(userId: string): Promise<Session | null> {
     return this.sessions
       .findOne({ userId, status: 'open', expiresAt: { $gt: new Date() } })
@@ -129,17 +154,6 @@ export class OrganizeService {
   }
 
   // ─── What Claude can do ───────────────────────────────────────────────────
-
-  /** The session behind a token, only while access is allowed. */
-  async activeSession(sessionId: string): Promise<Session | null> {
-    return this.sessions
-      .findOne({
-        _id: sessionId,
-        status: 'open',
-        expiresAt: { $gt: new Date() },
-      })
-      .lean<Session>();
-  }
 
   /** Folders Claude may see: locked and hidden ones, and everything inside them, are left out. */
   private async visibleFolders(userId: string) {

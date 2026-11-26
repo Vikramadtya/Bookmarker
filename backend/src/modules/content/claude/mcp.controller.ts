@@ -18,7 +18,7 @@ export class McpController {
     organize: OrganizeService,
   ) {
     this.handler = createMcpHandler((ctx) =>
-      buildMcpServer(organize, String(ctx.authInfo?.extra?.sessionId)),
+      buildMcpServer(organize, String(ctx.authInfo?.extra?.userId)),
     );
   }
 
@@ -38,8 +38,8 @@ export class McpController {
     const token = /^Bearer\s+(\S+)$/i.exec(
       req.headers.authorization ?? '',
     )?.[1];
-    const session = token ? await this.oauth.sessionForToken(token) : null;
-    if (!session) {
+    const owner = token ? await this.oauth.ownerOfToken(token) : null;
+    if (!owner) {
       // This header is how Claude discovers where to sign in.
       const metadata = `${this.oauth.issuer}/.well-known/oauth-protected-resource`;
       return reply
@@ -68,9 +68,9 @@ export class McpController {
         parsedBody: hasBody ? req.body : undefined,
         authInfo: {
           token: token!,
-          clientId: 'claude',
+          clientId: owner.clientId,
           scopes: ['organize'],
-          extra: { sessionId: session._id },
+          extra: { userId: owner.userId },
         },
       },
     );

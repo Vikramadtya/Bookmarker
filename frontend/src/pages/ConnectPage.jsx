@@ -60,18 +60,20 @@ export default function ConnectPage() {
     content = (
       <>
         <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
-          Allow {clientName} to read your bookmarks?
+          Link {clientName} to your bookmarks?
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           Signed in as {user.email}. You will be returned to {returnsTo}.
         </p>
         <ul className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-left text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
-          <li>✓ Read bookmarks outside locked and hidden folders</li>
+          <li>✓ Read bookmarks, only while you have a session open</li>
+          <li>✓ Never see locked or hidden folders</li>
           <li>✓ Suggest changes for you to review</li>
           <li>✗ Change, delete or share anything</li>
         </ul>
         <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-          Only allow this if you just pressed Connect in Claude yourself.
+          The link lasts 90 days or until you disconnect. Only allow this if you
+          just pressed Connect in Claude yourself.
         </p>
         {session ? (
           <button
