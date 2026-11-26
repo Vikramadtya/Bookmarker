@@ -25,6 +25,8 @@ import { useAppStore } from "@/store/useAppStore";
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const PublicCollectionView = lazy(() => import("@/pages/PublicCollectionView"));
 const SavePage = lazy(() => import("@/pages/SavePage"));
+const ConnectPage = lazy(() => import("@/pages/ConnectPage"));
+const ReviewPage = lazy(() => import("@/pages/ReviewPage"));
 const SettingsModal = lazy(
   () => import("@/domains/identity/presentation/SettingsModal")
 );
@@ -126,6 +128,9 @@ function Home() {
     location.pathname !== "/save"
   )
     return <Navigate to="/save" replace />;
+  // Same for a Claude connection that needed a sign-in first.
+  if (user && sessionStorage.getItem("pending-connect"))
+    return <Navigate to="/connect" replace />;
   // Never show the sign-in page just because the check failed.
   if (isError && !user) return <ServerUnreachable onRetry={refetch} />;
   return user ? <Workspace /> : <LandingPage />;
@@ -140,6 +145,8 @@ export default function App() {
           element={<PublicCollectionView />}
         />
         <Route path="/save" element={<SavePage />} />
+        <Route path="/connect" element={<ConnectPage />} />
+        <Route path="/review" element={<ReviewPage />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </Suspense>

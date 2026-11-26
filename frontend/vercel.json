@@ -13,6 +13,26 @@
       "destination": "https://bookmarker-7vbd.onrender.com/share/:path*"
     },
     {
+      "source": "/mcp",
+      "destination": "https://bookmarker-7vbd.onrender.com/mcp"
+    },
+    {
+      "source": "/oauth/:path*",
+      "destination": "https://bookmarker-7vbd.onrender.com/oauth/:path*"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "https://bookmarker-7vbd.onrender.com/.well-known/oauth-protected-resource"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/mcp",
+      "destination": "https://bookmarker-7vbd.onrender.com/.well-known/oauth-protected-resource/mcp"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "https://bookmarker-7vbd.onrender.com/.well-known/oauth-authorization-server"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

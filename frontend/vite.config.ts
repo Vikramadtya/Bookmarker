@@ -22,7 +22,14 @@ export default defineConfig({
         globPatterns: ["**/*.{html,css}"],
         // These are proxied to the backend. Without this the service worker
         // answers the Google login redirect with index.html and sign-in never starts.
-        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//, /^\/share\//],
+        navigateFallbackDenylist: [
+          /^\/auth\//,
+          /^\/api\//,
+          /^\/share\//,
+          /^\/oauth\//,
+          /^\/mcp/,
+          /^\/\.well-known\//,
+        ],
       },
       manifest: {
         name: "Bookmarker",

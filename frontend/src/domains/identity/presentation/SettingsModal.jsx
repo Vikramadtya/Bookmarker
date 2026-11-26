@@ -8,6 +8,8 @@ import {
   Crown,
   KeyRound,
 } from "lucide-react";
+import ClaudeTab from "@/domains/identity/presentation/ClaudeTab";
+import { Bot } from "lucide-react";
 import BillingTab from "@/domains/billing/presentation/BillingTab";
 import AdminCodesTab from "@/domains/billing/presentation/AdminCodesTab";
 import { useBilling } from "@/domains/billing/application/useBilling";
@@ -138,6 +140,17 @@ export default function SettingsModal() {
               Capture
             </button>
             <button
+              onClick={() => setActiveTab("claude")}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                activeTab === "claude"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/50"
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              Claude
+            </button>
+            <button
               onClick={() => setActiveTab("billing")}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === "billing"
@@ -201,6 +214,7 @@ export default function SettingsModal() {
             )}
 
             {activeTab === "capture" && <CaptureTab />}
+            {activeTab === "claude" && <ClaudeTab />}
             {activeTab === "billing" && <BillingTab />}
             {activeTab === "codes" && billing?.isAdmin && <AdminCodesTab />}
 

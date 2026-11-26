@@ -165,3 +165,14 @@ npm run dev            # Starts Vite on http://localhost:5173
 - **NEVER** import `mongoose` or `@nestjs/mongoose` inside the `domain/` or `application/` folders.
 - **NEVER** bypass the repository interface. Always use `@Inject('IRepositoryName')`.
 - **NEVER** use relative paths like `../../../core/`. Use the configured TypeScript aliases (`@core/`, `@identity/`, `@workspace/`, `@content/`).
+
+## Organise with Claude
+
+Pro users can connect their own Claude for a one-time pass that suggests tags,
+descriptions and folders. Claude connects to `<PUBLIC_URL>/mcp` as a custom
+connector, can only read (never locked or hidden folders) and propose, and loses
+access after an hour. Nothing changes until the user applies it in the app.
+
+Deploying: set `PUBLIC_URL` on the backend to the address people open the app at.
+`frontend/vercel.json` forwards `/mcp`, `/oauth/*` and `/.well-known/*` to the
+backend.

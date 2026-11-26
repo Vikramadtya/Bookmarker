@@ -15,6 +15,7 @@ import { UsersModule } from '@identity/users/users.module';
 import { SharedModule } from '@workspace/shared/shared.module';
 import { TagsModule } from '@content/tags/tags.module';
 import { ViewsModule } from '@workspace/views/views.module';
+import { ClaudeModule } from '@content/claude/claude.module';
 import { BillingModule } from '@identity/billing/billing.module';
 import { PreferencesModule } from '@identity/preferences/preferences.module';
 import {
@@ -106,6 +107,7 @@ import {
     ViewsModule,
     PreferencesModule,
     BillingModule,
+    ClaudeModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
