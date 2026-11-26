@@ -232,7 +232,7 @@ export default function BookmarkDetail() {
         </div>
 
         <div className="flex-1 overflow-y-auto bg-slate-50/60 p-5 md:p-8 dark:bg-slate-950/50">
-          <BookmarkPreview url={bookmark.bookmarkURL} />
+          <BookmarkPreview key={bookmark.id} bookmark={bookmark} />
         </div>
 
         {isReaderOpen && (

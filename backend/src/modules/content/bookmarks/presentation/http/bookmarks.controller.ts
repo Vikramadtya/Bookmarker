@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import {
   Controller,
   Get,
@@ -26,6 +27,9 @@ import { BookmarksService } from '../../application/services/bookmarks.service';
 import { FoldersService } from '@workspace/folders/application/services/folders.service';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
 import { UpdateBookmarkDto } from './dto/update-bookmark.dto';
+import { ConfigService } from '@nestjs/config';
+import { getFrontendUrl } from '@core/config/app.config';
+import { checkEmbeddable } from '@core/security/framing';
 import { ListBookmarksDto } from './dto/list-bookmarks.dto';
 import { BulkDeleteDto } from './dto/bulk-delete.dto';
 import { BulkMoveDto } from './dto/bulk-move.dto';
@@ -47,6 +51,7 @@ export class BookmarksController {
   constructor(
     private readonly bookmarksService: BookmarksService,
     private readonly foldersService: FoldersService,
+    private readonly config: ConfigService,
   ) {}
 
   @Get()
@@ -160,6 +165,17 @@ export class BookmarksController {
   @ApiResponse({ status: 404, description: 'Bookmark not found' })
   getById(@CurrentUser('email') userId: string, @Param('id') id: string) {
     return this.bookmarksService.getBookmarkById(userId, id);
+  }
+
+  @Get(':id/preview')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Can this page be shown inside the app? (null: could not tell)',
+  })
+  async preview(@CurrentUser('email') userId: string, @Param('id') id: string) {
+    const bookmark = await this.bookmarksService.getBookmarkById(userId, id);
+    const app = new URL(getFrontendUrl(this.config)).origin;
+    return { embeddable: await checkEmbeddable(bookmark.bookmarkURL, app) };
   }
 
   @Post(':id/opened')

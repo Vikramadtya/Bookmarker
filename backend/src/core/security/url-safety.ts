@@ -80,6 +80,7 @@ export function assertSafeUrl(raw: string): URL {
 }
 
 export interface SafeResponse {
+  headers: http.IncomingHttpHeaders;
   status: number;
   url: string;
   body: string;
@@ -121,6 +122,7 @@ export async function safeRequest(
     }
     return {
       status: result.status,
+      headers: result.headers,
       url: current.toString(),
       body: result.body,
     };
@@ -134,7 +136,12 @@ function requestOnce(
   timeoutMs: number,
   maxBytes: number,
   headers: Record<string, string>,
-): Promise<{ status: number; body: string; redirectTo?: string }> {
+): Promise<{
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  body: string;
+  redirectTo?: string;
+}> {
   const client = url.protocol === 'https:' ? https : http;
   return new Promise((resolve, reject) => {
     const req = client.request(
@@ -155,13 +162,14 @@ function requestOnce(
           res.resume();
           return resolve({
             status,
+            headers: res.headers,
             body: '',
             redirectTo: res.headers.location,
           });
         }
         if (method === 'HEAD') {
           res.resume();
-          return resolve({ status, body: '' });
+          return resolve({ status, headers: res.headers, body: '' });
         }
 
         const chunks: Buffer[] = [];
@@ -173,13 +181,18 @@ function requestOnce(
             req.destroy();
             return resolve({
               status,
+              headers: res.headers,
               body: Buffer.concat(chunks).toString('utf8'),
             });
           }
           chunks.push(chunk);
         });
         res.on('end', () =>
-          resolve({ status, body: Buffer.concat(chunks).toString('utf8') }),
+          resolve({
+            status,
+            headers: res.headers,
+            body: Buffer.concat(chunks).toString('utf8'),
+          }),
         );
         res.on('error', reject);
       },
