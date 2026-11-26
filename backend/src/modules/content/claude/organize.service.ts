@@ -15,6 +15,8 @@ import {
   SESSION_TTL_MS,
   cleanFolderPath,
   cleanTags,
+  matchFolderPath,
+  pathKey,
   safeUrl,
   sameTags,
 } from './rules';
@@ -23,6 +25,7 @@ type Session = OrganizeSession & { _id: string };
 
 export interface ProposedChange {
   id: string;
+  title?: string;
   tags?: string[];
   description?: string;
   folder?: string;
@@ -263,9 +266,12 @@ export class OrganizeService {
         userId: session.userId,
         folderId: { $in: [...paths.keys()] },
       })
-      .select('tags description folderId')
+      .select('title tags description folderId')
       .lean<any[]>();
     const known = new Map(rows.map((b) => [b._id, b]));
+    const existingPaths = new Map(
+      [...paths.values()].map((p) => [pathKey(p), p]),
+    );
     let saved = 0;
     const skipped: { id: string; why: string }[] = [];
 
@@ -276,6 +282,8 @@ export class OrganizeService {
         continue;
       }
       const set: Record<string, unknown> = {};
+      const title = change.title?.trim().replace(/\s+/g, ' ').slice(0, 300);
+      if (title && title !== (bookmark.title ?? '')) set.title = title;
       if (change.tags) {
         const tags = cleanTags(change.tags);
         if (tags.length && !sameTags(tags, bookmark.tags ?? []))
@@ -284,10 +292,13 @@ export class OrganizeService {
       const description = change.description?.trim().slice(0, 500);
       if (description && description !== (bookmark.description ?? ''))
         set.description = description;
-      const folder = cleanFolderPath(change.folder);
+      const folder = change.folder
+        ? (existingPaths.get(pathKey(change.folder)) ??
+          cleanFolderPath(change.folder))
+        : null;
       if (
         folder &&
-        folder.toLowerCase() !== paths.get(bookmark.folderId)?.toLowerCase()
+        pathKey(folder) !== pathKey(paths.get(bookmark.folderId) ?? '')
       )
         set.folderPath = folder;
       if (Object.keys(set).length === 0) {
@@ -296,7 +307,7 @@ export class OrganizeService {
       }
       // Proposing again for the same bookmark replaces the earlier suggestion.
       const unset = Object.fromEntries(
-        ['tags', 'description', 'folderPath']
+        ['title', 'tags', 'description', 'folderPath']
           .filter((k) => !(k in set))
           .map((k) => [k, '']),
       );
@@ -357,6 +368,7 @@ export class OrganizeService {
             description: b.description ?? '',
             folder: paths.get(b.folderId) ?? '',
           },
+          title: p.title ?? null,
           tags: p.tags ?? null,
           description: p.description ?? null,
           folder: p.folderPath ?? null,
@@ -365,25 +377,31 @@ export class OrganizeService {
     });
   }
 
-  /** Finds a folder by path among the visible ones, creating the missing levels. */
-  private async folderResolver(userId: string) {
-    const known = new Map(
+  /** Visible folders by comparable path. */
+  private async folderKeys(userId: string) {
+    return new Map(
       [...(await this.visibleFolders(userId))].map(([id, path]) => [
-        path.toLowerCase(),
+        pathKey(path),
         id,
       ]),
     );
+  }
+
+  /** Finds a folder by path among the visible ones, creating the missing levels. */
+  private async folderResolver(userId: string) {
+    const known = await this.folderKeys(userId);
     return async (path: string) => {
-      let parentId: string | undefined;
-      let key = '';
-      for (const name of path.split('/')) {
+      const match = matchFolderPath(path, known);
+      let parentId = match.parentId;
+      let key = path
+        .split('/')
+        .slice(0, path.split('/').length - match.missing.length)
+        .join('/');
+      for (const name of match.missing) {
+        parentId = (await this.folders.createFolder(userId, { name, parentId }))
+          .id;
         key = key ? `${key}/${name}` : name;
-        let id = known.get(key.toLowerCase());
-        if (!id) {
-          id = (await this.folders.createFolder(userId, { name, parentId })).id;
-          known.set(key.toLowerCase(), id);
-        }
-        parentId = id;
+        known.set(pathKey(key), parentId);
       }
       return parentId!;
     };
@@ -399,10 +417,11 @@ export class OrganizeService {
     for (const p of chosen) {
       const bookmark = await this.bookmarks
         .findOne({ _id: p.bookmarkId, userId })
-        .select('tags description folderId')
+        .select('title tags description folderId')
         .lean<any>();
       if (!bookmark) continue;
       const changes: Record<string, unknown> = {};
+      if (p.title) changes.title = p.title;
       if (p.tags) changes.tags = p.tags;
       if (p.description) changes.description = p.description;
       if (p.folderPath) changes.folderId = await folderFor(p.folderPath);
@@ -412,6 +431,7 @@ export class OrganizeService {
         {
           $set: {
             before: {
+              title: bookmark.title ?? '',
               tags: bookmark.tags ?? [],
               description: bookmark.description ?? '',
               folderId: bookmark.folderId,
@@ -455,6 +475,7 @@ export class OrganizeService {
     for (const p of applied) {
       if (!p.before) continue;
       const changes: Record<string, unknown> = {};
+      if (p.title) changes.title = p.before.title;
       if (p.tags) changes.tags = p.before.tags;
       if (p.description) changes.description = p.before.description;
       // A folder deleted since then cannot be restored to.

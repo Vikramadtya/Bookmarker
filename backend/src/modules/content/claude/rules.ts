@@ -109,6 +109,34 @@ export function cleanFolderPath(raw: unknown): string | null {
   return parts.join('/');
 }
 
+/** Compares folder paths regardless of case and spacing around "/". */
+export const pathKey = (path: string) =>
+  path
+    .split('/')
+    .map((p) => p.trim().replace(/\s+/g, ' '))
+    .filter(Boolean)
+    .join('/')
+    .toLowerCase();
+
+/**
+ * Where a path already exists. A folder's own name may contain "/" ("AI/ML"), so
+ * the longest existing prefix wins; `missing` are the levels still to create.
+ */
+export function matchFolderPath(
+  path: string,
+  existing: ReadonlyMap<string, string>,
+): { parentId?: string; missing: string[] } {
+  const parts = path
+    .split('/')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (let n = parts.length; n > 0; n--) {
+    const id = existing.get(pathKey(parts.slice(0, n).join('/')));
+    if (id) return { parentId: id, missing: parts.slice(n) };
+  }
+  return { missing: parts };
+}
+
 export const sameTags = (a: string[], b: string[]) =>
   a.length === b.length &&
   [...a].sort().join('\n') === [...b].sort().join('\n');

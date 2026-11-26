@@ -14,6 +14,7 @@ const button =
   "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40";
 const FILTERS = [
   ["all", "Everything"],
+  ["title", "Titles"],
   ["tags", "Tags"],
   ["description", "Descriptions"],
   ["folder", "Folders"],
@@ -172,6 +173,9 @@ export default function ReviewPage() {
                   {hostnameOf(p.bookmark.url)}
                 </p>
               </div>
+              {p.title && (
+                <Change label="Title" from={p.bookmark.title} to={p.title} />
+              )}
               {p.tags && (
                 <Change
                   label="Tags"

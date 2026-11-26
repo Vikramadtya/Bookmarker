@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   cleanFolderPath,
   cleanTags,
+  matchFolderPath,
   isAllowedRedirect,
   redirectMatches,
   safeUrl,
@@ -69,5 +70,30 @@ describe('cleaning', () => {
     expect(cleanFolderPath(' Work /  Reading ')).toBe('Work/Reading');
     expect(cleanFolderPath('a/b/c/d')).toBeNull();
     expect(cleanFolderPath('///')).toBeNull();
+  });
+});
+
+describe('matchFolderPath', () => {
+  const existing = new Map([
+    ['links', 'L'],
+    ['links/ai/ml', 'AIML'], // one folder whose name is "AI/ML"
+  ]);
+  it('finds a folder whose name contains a slash', () => {
+    expect(matchFolderPath('Links/AI/ML', existing)).toEqual({
+      parentId: 'AIML',
+      missing: [],
+    });
+    expect(matchFolderPath('links / AI / ML', existing).parentId).toBe('AIML');
+  });
+  it('creates only what is missing', () => {
+    expect(matchFolderPath('Links/Rust/Async', existing)).toEqual({
+      parentId: 'L',
+      missing: ['Rust', 'Async'],
+    });
+    expect(matchFolderPath('Links/AI/ML/Papers', existing)).toEqual({
+      parentId: 'AIML',
+      missing: ['Papers'],
+    });
+    expect(matchFolderPath('New', existing)).toEqual({ missing: ['New'] });
   });
 });

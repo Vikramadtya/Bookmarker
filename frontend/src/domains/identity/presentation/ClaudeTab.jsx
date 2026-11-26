@@ -135,7 +135,18 @@ export default function ClaudeTab() {
             Also share my notes and highlights
           </label>
           <button
-            onClick={() => start.mutate(includeNotes)}
+            onClick={() => {
+              // The review screen shows the newest session only.
+              const waiting = session?.counts.pending ?? 0;
+              if (
+                waiting > 0 &&
+                !window.confirm(
+                  `Starting a new session removes the ${waiting} suggestions still waiting from Review. Apply or reject them first if you want them. Start anyway?`
+                )
+              )
+                return;
+              start.mutate(includeNotes);
+            }}
             disabled={start.isPending}
             className={`${primary} mt-3`}
           >

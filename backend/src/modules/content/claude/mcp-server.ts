@@ -10,7 +10,7 @@ Work in this order:
 1. Call get_overview to see the folders, tags and size.
 2. Read the bookmarks with list_bookmarks, following nextCursor until it is null.
 3. Before suggesting changes, decide on one small, consistent set of folders and tags and record the folders with propose_structure.
-4. Submit suggestions with propose_changes in batches. Reuse existing tags where they fit; do not invent near-duplicates. Only suggest a change when it is a real improvement. Descriptions should be one or two factual sentences; do not invent facts you cannot see.
+4. Submit suggestions with propose_changes in batches. Reuse existing tags where they fit; do not invent near-duplicates. Only suggest a change when it is a real improvement. Suggest a title only when the current one is empty, "Untitled", a bare site name or otherwise unhelpful. Titles and descriptions must be factual; do not invent facts you cannot see.
 5. Call finish with a short summary. This ends your access.
 
 If the session is interrupted, call list_bookmarks with remaining_only to continue.
@@ -102,12 +102,19 @@ export function buildMcpServer(organize: OrganizeService, sessionId: string) {
     {
       title: 'Suggest changes',
       description:
-        'Suggest new tags, a description or a folder for bookmarks. The user reviews them; nothing is changed now. Include only the fields you want to change. tags replaces the whole tag list.',
+        'Suggest a new title, tags, a description or a folder for bookmarks. The user reviews them; nothing is changed now. Include only the fields you want to change. tags replaces the whole tag list.',
       inputSchema: z.object({
         changes: z
           .array(
             z.object({
               id: z.string().max(100),
+              title: z
+                .string()
+                .max(300)
+                .optional()
+                .describe(
+                  'Only when the current title is missing or unhelpful',
+                ),
               tags: z.array(z.string().max(60)).max(8).optional(),
               description: z.string().max(500).optional(),
               folder: z.string().max(200).optional(),

@@ -48,6 +48,9 @@ export class Proposal {
   @Prop({ type: String, required: true })
   bookmarkId: string;
 
+  @Prop({ type: String })
+  title?: string;
+
   @Prop({ type: SchemaTypes.Mixed, default: undefined })
   tags?: string[];
 
@@ -69,7 +72,12 @@ export class Proposal {
 
   /** The values replaced when applied, for undo. */
   @Prop({ type: SchemaTypes.Mixed, default: null })
-  before: { tags: string[]; description: string; folderId: string } | null;
+  before: {
+    title: string;
+    tags: string[];
+    description: string;
+    folderId: string;
+  } | null;
 }
 export const ProposalSchema = SchemaFactory.createForClass(Proposal);
 ProposalSchema.index({ sessionId: 1, bookmarkId: 1 }, { unique: true });
