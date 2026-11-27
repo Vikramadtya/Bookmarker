@@ -6,7 +6,7 @@ works in Safari without cookies.
 
 ## Connect it (every browser)
 
-1. In Bookmarker open **Settings → Capture** and copy the token (the part after
+1. In Bookmarker open **Settings → Connect** and copy the token (the part after
    `token=` in the email-to-save address).
 2. Open the extension's settings, enter your Bookmarker address and the token,
    and allow access when asked.

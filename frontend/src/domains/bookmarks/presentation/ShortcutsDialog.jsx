@@ -37,7 +37,7 @@ const GROUPS = [
     items: [
       [["A"], "Archive"],
       [["R"], "Mark read"],
-      [["S"], "Snooze for a week"],
+      [["S"], "Remind me next week"],
       [["M", "T"], "Move · tag"],
       [["U"], "Undo the last action"],
       [["→"], "Skip"],

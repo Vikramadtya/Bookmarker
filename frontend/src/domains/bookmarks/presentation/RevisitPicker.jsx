@@ -8,7 +8,7 @@ export default function RevisitPicker({ value, onChange, label = true }) {
     <div>
       {label && (
         <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
-          <BellRing className="h-3.5 w-3.5" /> Revisit later
+          <BellRing className="h-3.5 w-3.5" /> Remind me
           <span className="font-normal text-slate-400">(optional)</span>
         </p>
       )}

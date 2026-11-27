@@ -25,7 +25,7 @@ const refused = (message: string) => ({
 });
 
 const NO_SESSION =
-  'There is no open session, so nothing can be read or suggested. Ask the user to open Bookmarker, go to Settings → Claude, press "Start a session", and then ask you again. The connection itself is fine; they do not need to reconnect.';
+  'There is no open session, so nothing can be read or suggested. Ask the user to open Bookmarker, go to Settings → Connect, press "Start a session", and then ask you again. The connection itself is fine; they do not need to reconnect.';
 
 export function buildMcpServer(organize: OrganizeService, userId: string) {
   const server = new McpServer(

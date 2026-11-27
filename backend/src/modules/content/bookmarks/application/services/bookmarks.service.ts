@@ -104,6 +104,9 @@ export interface BookmarkPage {
   nextCursor: string | null;
 }
 
+const toDate = (value: string | null | undefined) =>
+  value ? new Date(value) : null;
+
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 @Injectable()
@@ -124,7 +127,8 @@ export class BookmarksService {
     const needsScraping = !dto.title || !dto.description || !dto.logoURL;
     const bookmark = await this.bookmarksRepository.create({
       ...(dto as Partial<Bookmark>),
-      snoozedUntil: dto.snoozedUntil ? new Date(dto.snoozedUntil) : null,
+      // A reminder also keeps the link out of triage until then.
+      snoozedUntil: toDate(dto.snoozedUntil ?? dto.revisitAt),
       revisitAt: dto.revisitAt ? new Date(dto.revisitAt) : null,
       userId,
       title: dto.title ?? '',
@@ -235,8 +239,11 @@ export class BookmarksService {
     const changes: Partial<Bookmark> = { ...(rest as Partial<Bookmark>) };
     if (snoozedUntil !== undefined)
       changes.snoozedUntil = snoozedUntil ? new Date(snoozedUntil) : null;
-    if (revisitAt !== undefined)
-      changes.revisitAt = revisitAt ? new Date(revisitAt) : null;
+    if (revisitAt !== undefined) {
+      changes.revisitAt = toDate(revisitAt);
+      // Setting or clearing a reminder does the same to the triage pause.
+      if (snoozedUntil === undefined) changes.snoozedUntil = changes.revisitAt;
+    }
     const updated = await this.bookmarksRepository.update(
       { _id: id, userId },
       changes,

@@ -2,6 +2,11 @@ import { useState } from "react";
 import {
   BellRing,
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
   Archive,
   CalendarDays,
   Copy,
@@ -33,6 +38,8 @@ const ICONS = {
   alert: AlertTriangle,
   archive: Archive,
 };
+
+const REMINDERS = "builtin:revisit";
 
 function NavItem({
   icon: Icon,
@@ -90,13 +97,50 @@ function NavItem({
   );
 }
 
-/** Triage entry point, smart views, and the tag / duplicate / digest tools. */
-export default function SmartViewsNav({ compact }) {
+/** Things waiting for you. Each row appears only when there is something in it. */
+export function QuickNav({ compact }) {
+  const { page, viewId, goPage, goView } = useNav();
+  const { data: counts } = useCounts();
+
+  return (
+    <>
+      {(counts?.unread > 0 || page === "triage") && (
+        <NavItem
+          icon={Zap}
+          label="Triage"
+          count={counts?.unread}
+          active={page === "triage"}
+          compact={compact}
+          accent="text-blue-500"
+          onClick={() => goPage("triage")}
+        />
+      )}
+      {(counts?.revisit > 0 || viewId === REMINDERS) && (
+        <NavItem
+          icon={BellRing}
+          label="Reminders due"
+          count={counts?.revisit}
+          active={viewId === REMINDERS}
+          compact={compact}
+          accent="text-amber-500"
+          onClick={() => goView(REMINDERS)}
+        />
+      )}
+    </>
+  );
+}
+
+/** Smart views and library tools, folded away until wanted. */
+export default function MoreNav({ compact, showHidden, onToggleHidden }) {
   const { page, viewId, goPage, goView } = useNav();
   const { data: counts } = useCounts();
   const { data: saved = [] } = useViews();
   const deleteView = useDeleteView();
-  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  // Stay open while one of these is on screen.
+  const inside = Boolean(viewId) || (Boolean(page) && page !== "triage");
+  const open = expanded || inside;
+  const Chevron = open ? ChevronDown : ChevronRight;
 
   const countFor = {
     "builtin:revisit": counts?.revisit,
@@ -106,38 +150,29 @@ export default function SmartViewsNav({ compact }) {
   };
 
   return (
-    <div className="mt-3 border-t border-slate-200/70 pt-3 dark:border-slate-800/70">
-      <NavItem
-        icon={Zap}
-        label="Triage"
-        count={counts?.unread}
-        active={page === "triage"}
-        compact={compact}
-        accent="text-blue-500"
-        onClick={() => goPage("triage")}
-      />
+    <div className="mt-3 border-t border-slate-200/70 pt-2 dark:border-slate-800/70">
+      <button
+        type="button"
+        onClick={() => setExpanded(!open)}
+        aria-expanded={open}
+        title="More"
+        className={cn(
+          "flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/50",
+          compact && "justify-center px-0"
+        )}
+      >
+        {compact ? (
+          <MoreHorizontal className="h-4 w-4 stroke-[1.5]" />
+        ) : (
+          <>
+            <Chevron className="h-4 w-4 stroke-[1.5] text-slate-400" />
+            More
+          </>
+        )}
+      </button>
 
-      {!compact && (
-        <button
-          onClick={() => setOpen(!open)}
-          className="mt-2 mb-1 px-3 text-[10px] font-semibold tracking-wider text-slate-400 uppercase hover:text-slate-500"
-        >
-          Smart views
-        </button>
-      )}
-      {(open || compact) && (
-        <>
-          {BUILTIN_VIEWS.map((v) => (
-            <NavItem
-              key={v.id}
-              icon={ICONS[v.icon] ?? Inbox}
-              label={v.name}
-              count={countFor[v.id]}
-              active={viewId === v.id}
-              compact={compact}
-              onClick={() => goView(v.id)}
-            />
-          ))}
+      {open && (
+        <div className="mt-1">
           {saved.map((v) => (
             <NavItem
               key={v.id}
@@ -149,33 +184,48 @@ export default function SmartViewsNav({ compact }) {
               onRemove={() => deleteView.mutate(v.id)}
             />
           ))}
-        </>
+          {BUILTIN_VIEWS.map((v) => (
+            <NavItem
+              key={v.id}
+              icon={ICONS[v.icon] ?? Inbox}
+              label={v.name}
+              count={countFor[v.id]}
+              active={viewId === v.id}
+              compact={compact}
+              onClick={() => goView(v.id)}
+            />
+          ))}
+          <div className="my-1 border-t border-slate-200/70 dark:border-slate-800/70" />
+          <NavItem
+            icon={Tag}
+            label="Tags"
+            active={page === "tags"}
+            compact={compact}
+            onClick={() => goPage("tags")}
+          />
+          <NavItem
+            icon={Copy}
+            label="Duplicates"
+            count={counts?.duplicates}
+            active={page === "duplicates"}
+            compact={compact}
+            onClick={() => goPage("duplicates")}
+          />
+          <NavItem
+            icon={Newspaper}
+            label="Weekly digest"
+            active={page === "digest"}
+            compact={compact}
+            onClick={() => goPage("digest")}
+          />
+          <NavItem
+            icon={showHidden ? EyeOff : Eye}
+            label={showHidden ? "Hide hidden folders" : "Show hidden folders"}
+            compact={compact}
+            onClick={onToggleHidden}
+          />
+        </div>
       )}
-
-      <div className="mt-2 border-t border-slate-200/70 pt-2 dark:border-slate-800/70">
-        <NavItem
-          icon={Tag}
-          label="Tags"
-          active={page === "tags"}
-          compact={compact}
-          onClick={() => goPage("tags")}
-        />
-        <NavItem
-          icon={Copy}
-          label="Duplicates"
-          count={counts?.duplicates}
-          active={page === "duplicates"}
-          compact={compact}
-          onClick={() => goPage("duplicates")}
-        />
-        <NavItem
-          icon={Newspaper}
-          label="Weekly digest"
-          active={page === "digest"}
-          compact={compact}
-          onClick={() => goPage("digest")}
-        />
-      </div>
     </div>
   );
 }

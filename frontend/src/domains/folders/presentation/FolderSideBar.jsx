@@ -1,12 +1,4 @@
-import {
-  PanelLeft,
-  Plus,
-  Layers,
-  LogOut,
-  Settings,
-  EyeOff,
-  Eye,
-} from "lucide-react";
+import { PanelLeft, Plus, Layers, LogOut, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -27,7 +19,9 @@ import FolderContextMenu from "./FolderContextMenu";
 import NewFolderInput from "./NewFolderInput";
 import DroppableFolderItem from "./DroppableFolderItem";
 import CollectionItem from "./CollectionItem";
-import SmartViewsNav from "@/domains/organize/presentation/SmartViewsNav";
+import MoreNav, {
+  QuickNav,
+} from "@/domains/organize/presentation/SmartViewsNav";
 
 export default function FolderSidebar() {
   const compact = useAppStore((s) => s.isSidebarCompact);
@@ -152,13 +146,6 @@ export default function FolderSidebar() {
           {!compact && (
             <div className="flex items-center gap-1">
               <ThemeToggle />
-              <button
-                onClick={() => openInputFor("root")}
-                title="New Collection"
-                className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800"
-              >
-                <Plus className="h-4 w-4 stroke-[1.5]" />
-              </button>
             </div>
           )}
         </div>
@@ -224,7 +211,7 @@ export default function FolderSidebar() {
           </div>
 
           {inbox && (
-            <div className="mb-3">
+            <div>
               <DroppableFolderItem
                 folder={inbox}
                 isActive={activeFolder === inbox.id}
@@ -239,6 +226,10 @@ export default function FolderSidebar() {
               />
             </div>
           )}
+
+          <div className="mb-3">
+            <QuickNav compact={compact} />
+          </div>
 
           {!compact && (
             <div className="flex items-center justify-between px-3 pt-1 pb-1">
@@ -324,83 +315,59 @@ export default function FolderSidebar() {
             </>
           )}
 
-          <SmartViewsNav compact={compact} />
+          <MoreNav
+            compact={compact}
+            showHidden={showHidden}
+            onToggleHidden={() => setShowHidden(!showHidden)}
+          />
         </div>
 
-        <div className="mt-auto space-y-1 border-t border-slate-200 p-4 dark:border-slate-800">
-          {user ? (
-            <div
-              className={cn(
-                "mb-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-900",
-                compact ? "justify-center" : ""
-              )}
-            >
-              {user.picture && !profileImageError ? (
-                <img
-                  src={user.picture}
-                  alt={user.name}
-                  className="h-8 w-8 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
-                  onError={() => setProfileImageError(true)}
-                />
-              ) : (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 uppercase dark:bg-blue-900/30 dark:text-blue-400">
-                  {user.name?.charAt(0) || "U"}
-                </div>
-              )}
-              {!compact && (
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {user.name}
-                  </p>
-                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">
-                    {user.email}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          <button
-            onClick={() => setShowHidden(!showHidden)}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
-              compact && "justify-center px-0"
-            )}
-            title={
-              showHidden ? "Hide Hidden Collections" : "Show Hidden Collections"
-            }
-          >
-            {showHidden ? (
-              <EyeOff className="h-4 w-4 shrink-0 stroke-[1.5]" />
+        <div
+          className={cn(
+            "mt-auto flex items-center gap-2 border-t border-slate-200 p-3 dark:border-slate-800",
+            compact && "flex-col"
+          )}
+        >
+          {user &&
+            (user.picture && !profileImageError ? (
+              <img
+                src={user.picture}
+                alt={user.name}
+                title={user.email}
+                className="h-8 w-8 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                onError={() => setProfileImageError(true)}
+              />
             ) : (
-              <Eye className="h-4 w-4 shrink-0 stroke-[1.5]" />
-            )}
-            {!compact && (
-              <span>{showHidden ? "Hide Hidden" : "Show Hidden"}</span>
-            )}
-          </button>
-
+              <div
+                title={user.email}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 uppercase dark:bg-blue-900/30 dark:text-blue-400"
+              >
+                {user.name?.charAt(0) || "U"}
+              </div>
+            ))}
+          {!compact && (
+            <p
+              className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700 dark:text-slate-200"
+              title={user?.email}
+            >
+              {user?.name}
+            </p>
+          )}
           <button
             onClick={() => setSettingsModalOpen(true)}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
-              compact && "justify-center px-0"
-            )}
+            aria-label="Settings"
             title="Settings"
+            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
-            <Settings className="h-4 w-4 shrink-0 stroke-[1.5]" />
-            {!compact && <span>Settings</span>}
+            <Settings className="h-4 w-4 stroke-[1.5]" />
           </button>
           <button
             onClick={() => logout.mutate()}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-white",
-              compact && "justify-center px-0"
-            )}
-            title="Sign Out"
+            aria-label="Sign out"
+            title="Sign out"
+            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
-            <LogOut className="h-4 w-4 shrink-0 stroke-[1.5]" />
-            {!compact && <span>Sign Out</span>}
+            <LogOut className="h-4 w-4 stroke-[1.5]" />
           </button>
         </div>
       </aside>

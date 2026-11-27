@@ -3,7 +3,7 @@
 export const BUILTIN_VIEWS = [
   {
     id: "builtin:revisit",
-    name: "Revisit",
+    name: "Reminders",
     q: "is:revisit",
     icon: "bell",
   },

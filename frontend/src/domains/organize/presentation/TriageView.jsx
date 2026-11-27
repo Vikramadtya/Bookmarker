@@ -51,7 +51,7 @@ const ACTIONS = [
   },
   {
     key: "s",
-    label: "Snooze",
+    label: "Later",
     icon: Moon,
     tone: "hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-500/10",
   },
@@ -169,14 +169,15 @@ export default function TriageView() {
 
   const archive = () => act({ status: "archived" }, { status: "unread" });
   const markRead = () => act({ status: "done" }, { status: "unread" });
+  // "Later" is the same reminder used everywhere: gone for now, back in a week.
   const snooze = () =>
     act(
       {
-        snoozedUntil: new Date(
+        revisitAt: new Date(
           Date.now() + SNOOZE_DAYS * 86_400_000
         ).toISOString(),
       },
-      { snoozedUntil: null }
+      { revisitAt: null }
     );
   const moveTo = (folder) =>
     act(
@@ -398,7 +399,7 @@ export default function TriageView() {
               ))}
             </div>
             <p className="mt-3 text-center text-[11px] text-slate-400">
-              Snooze hides it for {SNOOZE_DAYS} days · <kbd>U</kbd> undoes ·{" "}
+              Later reminds you in {SNOOZE_DAYS} days · <kbd>U</kbd> undoes ·{" "}
               <kbd>→</kbd> skips · <kbd>Esc</kbd> leaves
             </p>
           </div>

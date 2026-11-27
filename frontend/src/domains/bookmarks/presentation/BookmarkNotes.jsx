@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MessageSquare, Loader2, Plus } from "lucide-react";
 import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
 
-export default function BookmarkNotes({ bookmark }) {
+export default function BookmarkNotes({ bookmark, autoFocus = false }) {
   const [newNote, setNewNote] = useState("");
   const updateBookmark = useUpdateBookmark();
 
@@ -46,6 +46,7 @@ export default function BookmarkNotes({ bookmark }) {
       <form className="relative flex gap-2" onSubmit={addNote}>
         <input
           type="text"
+          autoFocus={autoFocus}
           placeholder="Add a new note..."
           value={newNote}
           maxLength={5000}

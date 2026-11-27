@@ -4,10 +4,9 @@ import {
   ArrowLeft,
   ExternalLink,
   Bookmark,
-  Edit2,
-  Folder,
-  BookOpen,
+  BellRing,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -17,12 +16,11 @@ import {
 import { Favicon } from "@/shared/ui/Favicon";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { Thumbnail } from "@/shared/ui/Thumbnail";
-import { FavoriteButton } from "@/shared/ui/FavoriteButton";
 import { cn } from "@/lib/utils";
 import BookmarkPreview from "./BookmarkPreview";
 import BookmarkNotes from "./BookmarkNotes";
-import BookmarkMetadata from "./BookmarkMetadata";
-import BookmarkStatusBar from "./BookmarkStatusBar";
+import DetailActions from "./DetailActions";
+import { formatRevisit } from "@/lib/revisit";
 import BookmarkHighlights from "./BookmarkHighlights";
 import Suggestions from "@/domains/organize/presentation/Suggestions";
 import { useRecordOpen } from "@/domains/organize/application/useOrganize";
@@ -31,7 +29,7 @@ import { displayTitle, hostnameOf, isPending, timeAgo } from "./bookmarkText";
 const ReaderView = lazy(() => import("./ReaderView"));
 
 const actionButton =
-  "flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-soft transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200";
+  "flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-soft hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400";
 
 const SHORTCUT_HINTS = [
   ["J / K", "browse"],
@@ -66,12 +64,11 @@ function EmptyDetail() {
 export default function BookmarkDetail() {
   const selectedId = useAppStore((s) => s.selectedBookmarkId);
   const setSelectedId = useAppStore((s) => s.setSelectedBookmarkId);
-  const openBookmarkModal = useAppStore((s) => s.openBookmarkModal);
-  const openMoveModal = useAppStore((s) => s.openMoveModal);
   const { data: bookmark } = useBookmark(selectedId);
   const { mutate: updateBookmark } = useUpdateBookmark();
   const recordOpen = useRecordOpen();
   const [isReaderOpen, setIsReaderOpen] = useState(false);
+  const [notingId, setNotingId] = useState(null); // asked to add a note
 
   if (!bookmark) return <EmptyDetail />;
 
@@ -96,49 +93,13 @@ export default function BookmarkDetail() {
               <ArrowLeft className="h-4 w-4 stroke-[1.5]" />
               <span>Back</span>
             </button>
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <FavoriteButton
-                isFavorite={bookmark.isFavorite}
-                onClick={() =>
-                  updateBookmark({
-                    id: bookmark.id,
-                    data: { isFavorite: !bookmark.isFavorite },
-                  })
-                }
-                className={cn(
-                  "shadow-soft flex items-center justify-center rounded-lg border px-3 py-1.5 active:scale-95",
-                  bookmark.isFavorite
-                    ? "border-amber-200 bg-amber-50 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/40"
-                    : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
-                )}
-              />
-              <button
-                onClick={() => openMoveModal(bookmark)}
-                className={actionButton}
-              >
-                <Folder className="h-4 w-4 stroke-[1.5]" />
-                <span>Move</span>
-              </button>
-              <button
-                onClick={() => openBookmarkModal("edit", bookmark)}
-                className={actionButton}
-              >
-                <Edit2 className="h-4 w-4 stroke-[1.5]" />
-                <span>Edit</span>
-              </button>
-              {bookmark.isArticle && (
-                <button
-                  onClick={() => setIsReaderOpen(true)}
-                  className="shadow-soft flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-all hover:bg-blue-500 active:scale-95"
-                >
-                  <BookOpen className="h-4 w-4 stroke-[1.5]" />
-                  <span>Reader</span>
-                </button>
-              )}
-            </div>
+            <DetailActions
+              key={bookmark.id}
+              bookmark={bookmark}
+              onRead={() => setIsReaderOpen(true)}
+              onAddNote={() => setNotingId(bookmark.id)}
+            />
           </div>
-
-          <BookmarkStatusBar bookmark={bookmark} />
 
           {bookmark.isDeadLink && (
             <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
@@ -206,6 +167,34 @@ export default function BookmarkDetail() {
               <p className="mt-0.5 text-xs text-slate-400">
                 Saved {timeAgo(bookmark.creationDate)}
               </p>
+              {(bookmark.tags?.length > 0 || bookmark.revisitAt) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {bookmark.revisitAt && (
+                    <button
+                      onClick={() =>
+                        updateBookmark({
+                          id: bookmark.id,
+                          data: { revisitAt: null },
+                        })
+                      }
+                      title="Clear reminder"
+                      className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300"
+                    >
+                      <BellRing className="h-3 w-3" />
+                      {formatRevisit(bookmark.revisitAt)}
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                  {bookmark.tags?.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -226,9 +215,13 @@ export default function BookmarkDetail() {
 
           <BookmarkHighlights bookmark={bookmark} />
 
-          <BookmarkNotes bookmark={bookmark} />
-
-          <BookmarkMetadata bookmark={bookmark} />
+          {(bookmark.comments?.length > 0 || notingId === bookmark.id) && (
+            <BookmarkNotes
+              key={bookmark.id}
+              bookmark={bookmark}
+              autoFocus={notingId === bookmark.id}
+            />
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto bg-slate-50/60 p-5 md:p-8 dark:bg-slate-950/50">

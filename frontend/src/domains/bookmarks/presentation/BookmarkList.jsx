@@ -1,4 +1,4 @@
-import { flattenFolders } from "@/lib/folderTree";
+import { flattenFolders, selectedFolderId } from "@/lib/folderTree";
 import { Loader2, Plus, SearchX } from "lucide-react";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -367,7 +367,12 @@ export default function BookmarkList({ activeFolder, view }) {
       b={b}
       isActive={selectedId === b.id}
       isSelected={selectedBookmarks.has(b.id)}
-      breadcrumb={breadcrumbs.get(b.folderId) ?? null}
+      // Inside a folder, repeating its name on every row is noise.
+      breadcrumb={
+        b.folderId === selectedFolderId(folderId)
+          ? null
+          : (breadcrumbs.get(b.folderId) ?? null)
+      }
       virtualItem={virtualItem}
       index={index}
       viewMode={viewMode}
