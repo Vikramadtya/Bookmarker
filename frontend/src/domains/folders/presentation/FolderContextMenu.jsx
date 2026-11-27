@@ -1,5 +1,14 @@
 import React from "react";
-import { Globe, Eye, EyeOff, Lock, Unlock, Trash2 } from "lucide-react";
+import {
+  Download,
+  Globe,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  Trash2,
+} from "lucide-react";
+import { useExportData } from "@/domains/identity/application/useSettings";
 
 export default function FolderContextMenu({
   contextMenu,
@@ -8,6 +17,8 @@ export default function FolderContextMenu({
   updateFolder,
   handleDeleteFolderClick,
 }) {
+  // Declared before the early return so the hook always runs.
+  const exportData = useExportData();
   if (!contextMenu) return null;
 
   return (
@@ -120,6 +131,20 @@ export default function FolderContextMenu({
             ? "Remove Password"
             : "Lock with Password"}
         </button>
+
+        {["csv", "json"].map((format) => (
+          <button
+            key={format}
+            onClick={() => {
+              exportData.mutate({ format, folder: contextMenu.folder });
+              setContextMenu(null);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          >
+            <Download className="h-4 w-4" />
+            Export as {format.toUpperCase()}
+          </button>
+        ))}
 
         <button
           onClick={() => handleDeleteFolderClick(contextMenu.folder.id)}

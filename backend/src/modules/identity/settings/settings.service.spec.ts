@@ -67,3 +67,63 @@ describe('SettingsService', () => {
     ]);
   });
 });
+
+describe('SettingsService folder export', () => {
+  const tree = [
+    { id: 'a', name: 'Study', parentId: null },
+    { id: 'b', name: 'Java', parentId: 'a' },
+    { id: 'c', name: 'Deep', parentId: 'b' },
+    { id: 'v', name: 'Vault', parentId: 'a', isLocked: true },
+    { id: 'w', name: 'Inside', parentId: 'v' },
+    { id: 'o', name: 'Other', parentId: null },
+  ];
+  const rows = tree.map((f) => ({
+    id: `b-${f.id}`,
+    folderId: f.id,
+    title: `in ${f.name}`,
+    bookmarkURL: `https://x.com/${f.id}`,
+    description: '',
+    tags: [],
+    comments: [],
+    creationDate: new Date(0),
+    isFavorite: false,
+    status: 'unread',
+  }));
+  const build = () => {
+    const folders = {
+      getAllFolders: jest.fn().mockResolvedValue(tree),
+      getFolderById: jest.fn(async (_u, id) => tree.find((f) => f.id === id)),
+      assertUnlocked: jest.fn(),
+    } as any;
+    const bookmarks = { getAll: jest.fn().mockResolvedValue(rows) } as any;
+    return { service: new SettingsService(bookmarks, folders), folders };
+  };
+
+  it('includes subfolders but not locked ones or their contents', async () => {
+    const out = JSON.parse(await build().service.exportToJson('u', 'a'));
+    expect(out.map((r: any) => r.folder)).toEqual([
+      'Study',
+      'Study/Java',
+      'Study/Java/Deep',
+    ]);
+  });
+
+  it('writes a CSV of only that folder', async () => {
+    const csv = await build().service.exportToCsv('u', 'b');
+    expect(csv.split('\n')).toHaveLength(3); // header and two rows
+    expect(csv).not.toContain('in Other');
+  });
+
+  it('refuses a locked folder without its token', async () => {
+    const { service, folders } = build();
+    folders.assertUnlocked.mockImplementation(() => {
+      throw new Error('locked');
+    });
+    await expect(service.exportToJson('u', 'v')).rejects.toThrow('locked');
+  });
+
+  it('still exports everything without a folder', async () => {
+    const out = JSON.parse(await build().service.exportToJson('u'));
+    expect(out).toHaveLength(rows.length);
+  });
+});

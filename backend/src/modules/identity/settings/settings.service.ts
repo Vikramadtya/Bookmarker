@@ -86,11 +86,12 @@ export class SettingsService {
   }
 
   /** Rows for the JSON and CSV exports, with each bookmark's folder as a path. */
-  private async exportRows(userId: string) {
-    const [folders, bookmarks] = await Promise.all([
+  private async exportRows(userId: string, only?: Set<string>) {
+    const [folders, all] = await Promise.all([
       this.foldersService.getAllFolders(userId),
       this.bookmarksService.getAll(userId),
     ]);
+    const bookmarks = only ? all.filter((b) => only.has(b.folderId)) : all;
     const byId = new Map(folders.map((f) => [f.id, f]));
     const pathOf = (id: string) => {
       const names: string[] = [];
@@ -115,12 +116,47 @@ export class SettingsService {
     }));
   }
 
-  async exportToJson(userId: string): Promise<string> {
-    return JSON.stringify(await this.exportRows(userId), null, 2);
+  /**
+   * The ids of a folder and everything inside it. The folder itself must be
+   * unlocked; locked folders inside it are left out, along with their contents.
+   */
+  private async folderScope(
+    userId: string,
+    folderId: string,
+    folderToken?: string,
+  ): Promise<Set<string>> {
+    const root = await this.foldersService.getFolderById(userId, folderId);
+    this.foldersService.assertUnlocked(root, folderToken);
+    const folders = await this.foldersService.getAllFolders(userId);
+    const scope = new Set([root.id]);
+    // A Set grows while it is iterated, so this walks the whole subtree.
+    for (const id of scope)
+      for (const f of folders)
+        if (f.parentId === id && !f.isLocked) scope.add(f.id);
+    return scope;
   }
 
-  async exportToCsv(userId: string): Promise<string> {
-    const rows = await this.exportRows(userId);
+  /** Everything, or just one folder (with its subfolders). */
+  async exportToJson(
+    userId: string,
+    folderId?: string,
+    folderToken?: string,
+  ): Promise<string> {
+    const only = folderId
+      ? await this.folderScope(userId, folderId, folderToken)
+      : undefined;
+    return JSON.stringify(await this.exportRows(userId, only), null, 2);
+  }
+
+  async exportToCsv(
+    userId: string,
+    folderId?: string,
+    folderToken?: string,
+  ): Promise<string> {
+    const only = folderId
+      ? await this.folderScope(userId, folderId, folderToken)
+      : undefined;
+    const rows = await this.exportRows(userId, only);
     const header =
       'title,url,description,tags,folder,favorite,status,saved,notes';
     const lines = rows.map((r) =>

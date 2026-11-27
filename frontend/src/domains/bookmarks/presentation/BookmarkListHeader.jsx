@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { SORT_OPTIONS, GROUP_OPTIONS } from "@/lib/viewDefs";
 import { useAppStore } from "@/store/useAppStore";
 import { useTags } from "@/domains/bookmarks/application/useBookmarks";
+import FolderExportButton from "@/domains/folders/presentation/FolderExportButton";
 import { useSaveView } from "@/domains/organize/application/useOrganize";
 
 const FIELDS = ["title", "description", "notes", "tags", "content"];
@@ -184,13 +185,16 @@ export default function BookmarkListHeader({
             {folderName}
           </h2>
         </div>
-        <button
-          onClick={() => openBookmarkModal("add")}
-          className="shadow-soft flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:bg-blue-500 active:scale-95"
-        >
-          <Plus className="h-4 w-4 stroke-[1.5]" />
-          <span>New</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <FolderExportButton selection={folderId} />
+          <button
+            onClick={() => openBookmarkModal("add")}
+            className="shadow-soft flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:bg-blue-500 active:scale-95"
+          >
+            <Plus className="h-4 w-4 stroke-[1.5]" />
+            <span>New</span>
+          </button>
+        </div>
       </div>
 
       <div className="z-10 flex flex-col gap-2.5 border-b border-slate-100 px-4 pb-3 dark:border-slate-800/50">

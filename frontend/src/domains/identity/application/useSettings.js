@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { makeApiRequest } from "@/lib/api";
 import { BASE_URL } from "@/lib/metadata";
 import { toast } from "sonner";
+import { folderTokenHeaders } from "@/lib/folderTokens";
 
 export function useDeleteAllData() {
   const queryClient = useQueryClient();
@@ -23,16 +24,32 @@ const EXPORT_TYPES = {
   csv: "text/csv",
 };
 
+/** "Case Studies" -> "case-studies", for file names. */
+const slug = (name) =>
+  name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "") || "folder";
+
+/**
+ * Downloads an export. Call with a format for everything, or with
+ * { format, folder } for one folder and its subfolders.
+ */
 export function useExportData() {
   return useMutation({
-    mutationFn: async (format = "html") => ({
-      format,
-      data: await makeApiRequest({
-        url: `${BASE_URL}/settings/export?format=${format}`,
+    mutationFn: async (options = "html") => {
+      const { format, folder } =
+        typeof options === "string" ? { format: options } : options;
+      const query = new URLSearchParams({ format });
+      if (folder) query.set("folderId", folder.id);
+      const data = await makeApiRequest({
+        url: `${BASE_URL}/settings/export?${query}`,
         method: "GET",
-      }),
-    }),
-    onSuccess: ({ format, data }) => {
+        headers: folder ? folderTokenHeaders(folder.id) : undefined,
+      });
+      return { format, folder, data };
+    },
+    onSuccess: ({ format, folder, data }) => {
       // The JSON export arrives already parsed.
       const text =
         typeof data === "string" ? data : JSON.stringify(data, null, 2);
@@ -40,12 +57,15 @@ export function useExportData() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `bookmarks_export_${new Date().toISOString().split("T")[0]}.${format}`;
+      const name = folder ? slug(folder.name) : "bookmarks_export";
+      a.download = `${name}_${new Date().toISOString().split("T")[0]}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      toast.success("Export successful!");
+      toast.success(
+        folder ? `Exported “${folder.name}”` : "Export successful!"
+      );
     },
   });
 }

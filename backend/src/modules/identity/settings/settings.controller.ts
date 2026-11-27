@@ -5,6 +5,8 @@ import {
   Delete,
   Body,
   Query,
+  Headers,
+  BadRequestException,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -31,15 +33,23 @@ export class SettingsController {
 
   @Get('export')
   @ApiOperation({
-    summary: 'Export all bookmarks: Netscape HTML (default), JSON or CSV',
+    summary:
+      'Export bookmarks: Netscape HTML (default), JSON or CSV. With folderId, only that folder and its subfolders (JSON or CSV)',
   })
   @ApiResponse({ status: 200, description: 'File content as a string' })
   async exportData(
     @CurrentUser('email') userId: string,
     @Query('format') format?: string,
+    @Query('folderId') folderId?: string,
+    @Headers('x-folder-token') folderToken?: string,
   ) {
-    if (format === 'json') return this.settingsService.exportToJson(userId);
-    if (format === 'csv') return this.settingsService.exportToCsv(userId);
+    if (format === 'json')
+      return this.settingsService.exportToJson(userId, folderId, folderToken);
+    if (format === 'csv')
+      return this.settingsService.exportToCsv(userId, folderId, folderToken);
+    // Never answer a one-folder request with the whole library.
+    if (folderId)
+      throw new BadRequestException('A folder can be exported as JSON or CSV');
     return this.settingsService.exportToHtml(userId);
   }
 
