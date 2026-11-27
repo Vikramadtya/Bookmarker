@@ -5,6 +5,7 @@ import { useFolders } from "@/domains/folders/application/useFolders";
 import { useUpdateBookmark } from "@/domains/bookmarks/application/useBookmarks";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { flattenFolders } from "@/lib/folderTree";
 
 export default function MoveBookmarkModal() {
   const moveBookmarkModal = useAppStore((s) => s.moveBookmarkModal);
@@ -55,7 +56,7 @@ export default function MoveBookmarkModal() {
             </div>
 
             <div className="max-h-64 overflow-y-auto p-2">
-              {folders.map((folder) => (
+              {flattenFolders(folders).map((folder) => (
                 <button
                   key={folder.id}
                   onClick={() => handleMove(folder.id)}
@@ -66,8 +67,11 @@ export default function MoveBookmarkModal() {
                       : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50"
                   )}
                 >
-                  <Folder className="h-4 w-4" />
-                  <span>{folder.name}</span>
+                  <Folder
+                    className="h-4 w-4 shrink-0"
+                    style={{ marginLeft: folder.depth * 16 }}
+                  />
+                  <span className="truncate">{folder.name}</span>
                 </button>
               ))}
             </div>

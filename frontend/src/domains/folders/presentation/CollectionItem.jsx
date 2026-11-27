@@ -9,10 +9,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasFolderToken } from "@/lib/folderTokens";
-import DroppableFolderItem from "./DroppableFolderItem";
+import FolderBranch from "./FolderBranch";
+import { folderSelection, selectedFolderId } from "@/lib/folderTree";
 
 export default function CollectionItem({
   collection,
+  folders,
   activeFolder,
   setActiveFolder,
   toggleCollection,
@@ -32,12 +34,29 @@ export default function CollectionItem({
   handleContextMenu,
   setUnlockFolderInfo,
 }) {
+  const tree = {
+    folders,
+    getSubFolders,
+    activeFolder,
+    setActiveFolder,
+    expanded: expandedCollections,
+    setExpanded: setExpandedCollections,
+    compact,
+    itemProps: {
+      handleDeleteFolder: handleDeleteFolderClick,
+      user,
+      onContextMenu: handleContextMenu,
+      onPublicIconClick: setPublicModalFolder,
+      onUnlockPrompt: setUnlockFolderInfo,
+    },
+  };
+
   return (
     <div key={collection.id} className="mb-2">
       <div
         className={cn(
           "group flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition-all duration-200",
-          activeFolder === collection.id
+          selectedFolderId(activeFolder) === collection.id
             ? "bg-slate-200/50 font-medium text-slate-900 dark:bg-slate-800/50 dark:text-slate-100"
             : "text-slate-600 hover:bg-slate-200/30 dark:text-slate-400 dark:hover:bg-slate-800/30"
         )}
@@ -47,13 +66,8 @@ export default function CollectionItem({
             return;
           }
           toggleCollection(collection.id);
-          const subFolderIds = getSubFolders(collection.id)
-            .map((f) => f.id)
-            .join(",");
-          // Set active folder to collection id + children ids so the API fetches everything in the collection
-          setActiveFolder(
-            subFolderIds ? `${collection.id},${subFolderIds}` : collection.id
-          );
+          // Selecting a collection shows everything inside it, however deep.
+          setActiveFolder(folderSelection(folders, collection.id));
         }}
         onContextMenu={(e) => handleContextMenu(e, collection)}
       >
@@ -125,18 +139,7 @@ export default function CollectionItem({
             </form>
           )}
           {getSubFolders(collection.id).map((sub) => (
-            <DroppableFolderItem
-              key={sub.id}
-              folder={sub}
-              isActive={activeFolder === sub.id}
-              compact={compact}
-              setActiveFolder={setActiveFolder}
-              handleDeleteFolder={handleDeleteFolderClick}
-              user={user}
-              onContextMenu={handleContextMenu}
-              onPublicIconClick={setPublicModalFolder}
-              onUnlockPrompt={setUnlockFolderInfo}
-            />
+            <FolderBranch key={sub.id} folder={sub} tree={tree} />
           ))}
         </div>
       )}

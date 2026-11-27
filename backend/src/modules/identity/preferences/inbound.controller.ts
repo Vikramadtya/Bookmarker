@@ -72,9 +72,27 @@ export class InboundController {
   async listFolders(@Query('token') token: string | undefined) {
     const owner = await this.ownerOf(token);
     const folders = await this.folders.getAllFolders(owner.userId);
+    const byId = new Map(folders.map((f) => [f.id, f]));
+    /** "Study / Java", so nested folders with similar names can be told apart. */
+    const pathOf = (id: string) => {
+      const names: string[] = [];
+      const seen = new Set<string>();
+      for (let f = byId.get(id); f && !seen.has(f.id);) {
+        seen.add(f.id);
+        names.unshift(f.name);
+        f = f.parentId ? byId.get(f.parentId) : undefined;
+      }
+      return names.join(' / ');
+    };
     return folders
       .filter((f) => !f.isLocked)
-      .map((f) => ({ id: f.id, name: f.name, isInbox: !!f.isInbox }));
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        path: pathOf(f.id),
+        isInbox: !!f.isInbox,
+      }))
+      .sort((a, b) => a.path.localeCompare(b.path));
   }
 
   /** Saves one link for the browser extensions, which cannot rely on cookies in Safari. */

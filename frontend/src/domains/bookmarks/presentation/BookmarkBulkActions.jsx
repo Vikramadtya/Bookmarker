@@ -1,3 +1,4 @@
+import { flattenFolders } from "@/lib/folderTree";
 import { useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import {
@@ -99,13 +100,15 @@ export default function BookmarkBulkActions() {
               {menu === "move" && (
                 <Popover>
                   <div className="no-scrollbar max-h-60 overflow-y-auto">
-                    {folders.map((folder) => (
+                    {flattenFolders(folders).map((folder) => (
                       <button
                         key={folder.id}
                         onClick={() => moveTo(folder.id)}
                         className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                       >
-                        {folder.name}
+                        <span style={{ paddingLeft: folder.depth * 12 }}>
+                          {folder.name}
+                        </span>
                       </button>
                     ))}
                   </div>

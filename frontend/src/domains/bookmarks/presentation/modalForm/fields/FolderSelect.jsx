@@ -1,6 +1,15 @@
 import React from "react";
 import { Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { flattenFolders } from "@/lib/folderTree";
+
+/** The collection and everything under it, in tree order. */
+const subtree = (collection, subFolders) => {
+  const all = flattenFolders([collection, ...subFolders]);
+  const start = all.findIndex((f) => f.id === collection.id);
+  const end = all.findIndex((f, i) => i > start && f.depth === 0);
+  return all.slice(start, end === -1 ? undefined : end);
+};
 
 export default function FolderSelect({
   register,
@@ -43,16 +52,13 @@ export default function FolderSelect({
         )}
         {collections.map((collection) => (
           <optgroup key={collection.id} label={collection.name}>
-            <option value={collection.id} className="text-slate-500 italic">
-              📁 {collection.name} (Root)
-            </option>
-            {subFolders
-              .filter((f) => f.parentId === collection.id)
-              .map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  └ {folder.name}
-                </option>
-              ))}
+            {subtree(collection, subFolders).map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.depth === 0
+                  ? `📁 ${folder.name} (Root)`
+                  : `${"\u00a0\u00a0\u00a0".repeat(folder.depth - 1)}└ ${folder.name}`}
+              </option>
+            ))}
           </optgroup>
         ))}
       </select>

@@ -1,3 +1,4 @@
+import { flattenFolders } from "@/lib/folderTree";
 import { Loader2, Plus, SearchX } from "lucide-react";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -195,16 +196,11 @@ export default function BookmarkList({ activeFolder, view }) {
     [recordOpen]
   );
 
-  // Folder id -> "Parent / Child", built once instead of per row.
-  const breadcrumbs = useMemo(() => {
-    const byId = new Map(folders.map((f) => [f.id, f]));
-    return new Map(
-      folders.map((f) => {
-        const parent = f.parentId && byId.get(f.parentId);
-        return [f.id, parent ? `${parent.name} / ${f.name}` : f.name];
-      })
-    );
-  }, [folders]);
+  // Folder id -> "Study / Java", built once instead of per row.
+  const breadcrumbs = useMemo(
+    () => new Map(flattenFolders(folders).map((f) => [f.id, f.path])),
+    [folders]
+  );
 
   const handleToggleSelect = useCallback(
     (e, id) => {

@@ -53,7 +53,7 @@ async function main() {
     const folders = await api(appUrl, token, "folders");
     $("title").value = tab.title ?? "";
     for (const folder of folders) {
-      const option = new Option(folder.name, folder.id);
+      const option = new Option(folder.path || folder.name, folder.id);
       if (folder.isInbox) option.selected = true;
       $("folder").add(option);
     }

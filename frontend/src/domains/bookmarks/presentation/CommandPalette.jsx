@@ -1,3 +1,4 @@
+import { flattenFolders } from "@/lib/folderTree";
 import { useEffect, useMemo, useState } from "react";
 import { Command } from "cmdk";
 import { Search, Folder } from "lucide-react";
@@ -86,9 +87,9 @@ export function CommandPalette({ onClose }) {
               className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 transition-all outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
             >
               <option value="all">All Folders</option>
-              {folders.map((f) => (
+              {flattenFolders(folders).map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name}
+                  {f.path}
                 </option>
               ))}
             </select>

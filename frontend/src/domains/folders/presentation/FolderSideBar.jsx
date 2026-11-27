@@ -269,6 +269,7 @@ export default function FolderSidebar() {
                 <CollectionItem
                   key={collection.id}
                   collection={collection}
+                  folders={folders}
                   activeFolder={activeFolder}
                   setActiveFolder={setActiveFolder}
                   toggleCollection={toggleCollection}
@@ -300,6 +301,7 @@ export default function FolderSidebar() {
                     <CollectionItem
                       key={collection.id}
                       collection={collection}
+                      folders={folders}
                       activeFolder={activeFolder}
                       setActiveFolder={setActiveFolder}
                       toggleCollection={toggleCollection}
