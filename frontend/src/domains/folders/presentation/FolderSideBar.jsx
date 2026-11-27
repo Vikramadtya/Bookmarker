@@ -24,6 +24,7 @@ import DeleteFolderModal from "./DeleteFolderModal";
 import PublicFolderModal from "./PublicFolderModal";
 import UnlockFolderModal from "./UnlockFolderModal";
 import FolderContextMenu from "./FolderContextMenu";
+import NewFolderInput from "./NewFolderInput";
 import DroppableFolderItem from "./DroppableFolderItem";
 import CollectionItem from "./CollectionItem";
 import SmartViewsNav from "@/domains/organize/presentation/SmartViewsNav";
@@ -52,18 +53,18 @@ export default function FolderSidebar() {
   const updateFolder = useUpdateFolder();
 
   // Folder creation — inline input state
-  const {
-    showInputFor,
-    newFolderName,
-    setNewFolderName,
-    openInputFor: setShowInputFor,
-    handleCreateFolder,
-    isPending: createFolderPending,
-  } = useFolderCreation({
+  const creation = useFolderCreation({
     onSuccess: (_created, parentId) => {
       if (parentId) expandCollection(parentId);
     },
   });
+  const { showInputFor, openInputFor } = creation;
+
+  /** Opens the name box inside a folder, expanding it so the box is visible. */
+  const addSubfolder = (parentId) => {
+    expandCollection(parentId);
+    openInputFor(parentId);
+  };
 
   const { data: user } = useAuth();
   const logout = useLogout();
@@ -152,7 +153,7 @@ export default function FolderSidebar() {
             <div className="flex items-center gap-1">
               <ThemeToggle />
               <button
-                onClick={() => setShowInputFor("root")}
+                onClick={() => openInputFor("root")}
                 title="New Collection"
                 className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800"
               >
@@ -161,24 +162,6 @@ export default function FolderSidebar() {
             </div>
           )}
         </div>
-
-        {!compact && showInputFor === "root" && (
-          <form
-            onSubmit={(e) => handleCreateFolder(e, null)}
-            className="mb-2 px-4"
-          >
-            <input
-              type="text"
-              autoFocus
-              placeholder="Collection name..."
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:ring-2 focus:ring-blue-500/50 focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onBlur={() => setShowInputFor(null)}
-              disabled={createFolderPending}
-            />
-          </form>
-        )}
 
         <div className="no-scrollbar flex-1 space-y-0.5 overflow-y-auto px-3 pb-4 text-sm">
           <div
@@ -257,7 +240,29 @@ export default function FolderSidebar() {
             </div>
           )}
 
-          <SmartViewsNav compact={compact} />
+          {!compact && (
+            <div className="flex items-center justify-between px-3 pt-1 pb-1">
+              <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                Collections
+              </span>
+              <button
+                onClick={() => openInputFor("root")}
+                aria-label="Add a collection"
+                title="Add a collection"
+                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-blue-600 dark:hover:bg-slate-800"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[1.5]" />
+              </button>
+            </div>
+          )}
+          {!compact && showInputFor === "root" && (
+            <NewFolderInput
+              parentId={null}
+              placeholder="Collection name, then Enter"
+              className="px-1"
+              creation={creation}
+            />
+          )}
 
           {isLoading ? (
             <div className="mt-3 px-3 text-xs text-slate-500">
@@ -278,12 +283,8 @@ export default function FolderSidebar() {
                   setExpandedCollections={setExpandedCollections}
                   compact={compact}
                   setPublicModalFolder={setPublicModalFolder}
-                  setShowInputFor={setShowInputFor}
-                  showInputFor={showInputFor}
-                  handleCreateFolder={handleCreateFolder}
-                  newFolderName={newFolderName}
-                  setNewFolderName={setNewFolderName}
-                  createFolderPending={createFolderPending}
+                  creation={creation}
+                  addSubfolder={addSubfolder}
                   handleDeleteFolderClick={handleDeleteFolderClick}
                   user={user}
                   handleContextMenu={handleContextMenu}
@@ -310,12 +311,8 @@ export default function FolderSidebar() {
                       setExpandedCollections={setExpandedCollections}
                       compact={compact}
                       setPublicModalFolder={setPublicModalFolder}
-                      setShowInputFor={setShowInputFor}
-                      showInputFor={showInputFor}
-                      handleCreateFolder={handleCreateFolder}
-                      newFolderName={newFolderName}
-                      setNewFolderName={setNewFolderName}
-                      createFolderPending={createFolderPending}
+                      creation={creation}
+                      addSubfolder={addSubfolder}
                       handleDeleteFolderClick={handleDeleteFolderClick}
                       user={user}
                       handleContextMenu={handleContextMenu}
@@ -326,6 +323,8 @@ export default function FolderSidebar() {
               )}
             </>
           )}
+
+          <SmartViewsNav compact={compact} />
         </div>
 
         <div className="mt-auto space-y-1 border-t border-slate-200 p-4 dark:border-slate-800">
@@ -419,6 +418,7 @@ export default function FolderSidebar() {
         setPublicModalFolder={setPublicModalFolder}
         updateFolder={updateFolder}
         handleDeleteFolderClick={handleDeleteFolderClick}
+        addSubfolder={addSubfolder}
       />
 
       <PublicFolderModal

@@ -1,6 +1,7 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { folderSelection, selectedFolderId } from "@/lib/folderTree";
 import DroppableFolderItem from "./DroppableFolderItem";
+import NewFolderInput from "./NewFolderInput";
 
 /** A folder and, below it, its subfolders to any depth. Open unless collapsed. */
 export default function FolderBranch({ folder, tree }) {
@@ -12,6 +13,8 @@ export default function FolderBranch({ folder, tree }) {
     expanded,
     setExpanded,
     compact,
+    creation,
+    addSubfolder,
     itemProps,
   } = tree;
   const children = getSubFolders(folder.id);
@@ -20,7 +23,7 @@ export default function FolderBranch({ folder, tree }) {
 
   return (
     <div>
-      <div className="flex items-center">
+      <div className="group/row flex items-center">
         {children.length > 0 && (
           <button
             type="button"
@@ -45,7 +48,25 @@ export default function FolderBranch({ folder, tree }) {
             }
           />
         </div>
+        {!compact && (
+          <button
+            type="button"
+            aria-label={`Add a folder inside ${folder.name}`}
+            title="New folder inside"
+            onClick={() => addSubfolder(folder.id)}
+            className="hidden shrink-0 rounded p-1 text-slate-400 group-hover/row:block hover:text-blue-500 focus-visible:block [@media(hover:none)]:block"
+          >
+            <Plus className="h-3.5 w-3.5 stroke-[1.5]" />
+          </button>
+        )}
       </div>
+      {!compact && creation.showInputFor === folder.id && (
+        <NewFolderInput
+          parentId={folder.id}
+          className="mt-0.5 ml-4"
+          creation={creation}
+        />
+      )}
       {open && children.length > 0 && (
         <div className="ml-3 space-y-0.5 border-l border-slate-200 pl-1.5 dark:border-slate-800">
           {children.map((child) => (

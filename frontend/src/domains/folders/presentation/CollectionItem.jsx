@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { hasFolderToken } from "@/lib/folderTokens";
 import FolderBranch from "./FolderBranch";
+import NewFolderInput from "./NewFolderInput";
 import { folderSelection, selectedFolderId } from "@/lib/folderTree";
 
 export default function CollectionItem({
@@ -23,12 +24,8 @@ export default function CollectionItem({
   setExpandedCollections,
   compact,
   setPublicModalFolder,
-  setShowInputFor,
-  showInputFor,
-  handleCreateFolder,
-  newFolderName,
-  setNewFolderName,
-  createFolderPending,
+  creation,
+  addSubfolder,
   handleDeleteFolderClick,
   user,
   handleContextMenu,
@@ -42,6 +39,8 @@ export default function CollectionItem({
     expanded: expandedCollections,
     setExpanded: setExpandedCollections,
     compact,
+    creation,
+    addSubfolder,
     itemProps: {
       handleDeleteFolder: handleDeleteFolderClick,
       user,
@@ -104,13 +103,9 @@ export default function CollectionItem({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowInputFor(collection.id);
-                setExpandedCollections((prev) => ({
-                  ...prev,
-                  [collection.id]: true,
-                }));
+                addSubfolder(collection.id);
               }}
-              className="hidden p-1 text-slate-400 transition-colors group-hover:block hover:text-blue-500"
+              className="hidden p-1 text-slate-400 transition-colors group-hover:block hover:text-blue-500 [@media(hover:none)]:block"
               title="New Folder"
             >
               <Plus className="h-3.5 w-3.5 stroke-[1.5]" />
@@ -121,22 +116,8 @@ export default function CollectionItem({
 
       {expandedCollections[collection.id] && (
         <div className="mt-0.5 ml-5 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-800">
-          {!compact && showInputFor === collection.id && (
-            <form
-              onSubmit={(e) => handleCreateFolder(e, collection.id)}
-              className="mb-1"
-            >
-              <input
-                type="text"
-                autoFocus
-                placeholder="Folder name..."
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:ring-2 focus:ring-blue-500/50 focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onBlur={() => setShowInputFor(null)}
-                disabled={createFolderPending}
-              />
-            </form>
+          {!compact && creation.showInputFor === collection.id && (
+            <NewFolderInput parentId={collection.id} creation={creation} />
           )}
           {getSubFolders(collection.id).map((sub) => (
             <FolderBranch key={sub.id} folder={sub} tree={tree} />

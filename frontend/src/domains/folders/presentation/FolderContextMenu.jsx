@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Download,
+  FolderPlus,
   Globe,
   Eye,
   EyeOff,
@@ -16,6 +17,7 @@ export default function FolderContextMenu({
   setPublicModalFolder,
   updateFolder,
   handleDeleteFolderClick,
+  addSubfolder,
 }) {
   // Declared before the early return so the hook always runs.
   const exportData = useExportData();
@@ -34,6 +36,17 @@ export default function FolderContextMenu({
         className="absolute z-50 min-w-[160px] rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-900"
         style={{ top: contextMenu.y, left: contextMenu.x }}
       >
+        <button
+          onClick={() => {
+            addSubfolder(contextMenu.folder.id);
+            setContextMenu(null);
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <FolderPlus className="h-4 w-4" />
+          New Folder Inside
+        </button>
+
         <button
           onClick={() => {
             setPublicModalFolder(contextMenu.folder);
